@@ -173,7 +173,7 @@ func VNDBSearch(gameName string, topR int) (map[string][]structs.Galgame, error)
 		released      = "released"                                      // 发布日期
 		rating        = "rating"                                        // 评分，10-100 需自行转换为1-10
 		screenshots   = "screenshots{url, sexual, violence, votecount}" // 游戏截图 将来作为游戏详情页的背景使用 选择优先级为优先选择投票数最高 且色情、暴力指数在0.5以下的
-		description   = "description"                                   // TODO 简介 可能包含格式化代码，需要处理：https://vndb.org/d9#4
+		description   = "description"                                   // 简介
 	)
 
 	params := []string{mainTitle, titles, poster, lengthMinutes, length, id, devStatus, released, rating, screenshots, description}
