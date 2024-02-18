@@ -35,7 +35,7 @@ var (
 )
 
 type SingleTitle struct {
-	Language string `json:"language"` // 地区
+	Lang     string `json:"lang"`     // 地区
 	Title    string `json:"title"`    //标题
 	Main     bool   `json:"main"`     // 是否是主标题
 	Official bool   `json:"official"` // 是否被官方承认（？不确定
@@ -102,7 +102,7 @@ func ConvertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.Galgame, 
 		var names []types.GalgameName
 		for _, t := range g.Titles {
 			names = append(names, types.GalgameName{
-				Language: t.Language,
+				Language: t.Lang,
 				Title:    t.Title,
 				Main:     t.Main,
 				Official: t.Official,
