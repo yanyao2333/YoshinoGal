@@ -1,11 +1,13 @@
 package sources
 
 import (
-	"github.com/sirupsen/logrus"
 	"testing"
 )
 
 func TestVNDBSearch(t *testing.T) {
+	//logrus.SetReportCaller(true)
+	//logrus.SetLevel(logrus.TraceLevel)
+
 	type args struct {
 		gameName string
 	}
@@ -28,32 +30,6 @@ func TestVNDBSearch(t *testing.T) {
 			},
 			wantErr: false,
 		},
-	}
-	for _, tt := range tests {
-		logrus.SetReportCaller(true)
-		logrus.SetLevel(logrus.TraceLevel)
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := VNDBSearch(tt.args.gameName, 1)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("VNDB搜索失败，失败原因： %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-		})
-
-	}
-}
-
-func TestVNDBSearchWithEmptyName(t *testing.T) {
-	logrus.SetReportCaller(true)
-	logrus.SetLevel(logrus.TraceLevel)
-	type args struct {
-		gameName string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
 		{
 			name: "EmptyName",
 			args: args{
@@ -61,29 +37,6 @@ func TestVNDBSearchWithEmptyName(t *testing.T) {
 			},
 			wantErr: true,
 		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := VNDBSearch(tt.args.gameName, 1)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("VNDBSearch 没有对空字符串进行处理，笨蛋！ error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-		})
-	}
-}
-
-func TestVNDBSearchWithInvalidName(t *testing.T) {
-	logrus.SetReportCaller(true)
-	logrus.SetLevel(logrus.TraceLevel)
-	type args struct {
-		gameName string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
 		{
 			name: "InvalidName",
 			args: args{
@@ -92,14 +45,13 @@ func TestVNDBSearchWithInvalidName(t *testing.T) {
 			wantErr: true,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := VNDBSearch(tt.args.gameName, 1)
+			_, err := VNDBSearch(tt.args.gameName)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("没有对无搜索结果的游戏进行处理捏！ error = %v, wantErr %v", err, tt.wantErr)
-				return
+				t.Errorf("VNDBSearch 在执行测试：%s  时发生错误了喵, error: %v, wantErr %v", tt.name, err, tt.wantErr)
 			}
 		})
-
 	}
 }

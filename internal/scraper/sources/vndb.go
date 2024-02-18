@@ -1,7 +1,7 @@
 package sources
 
 import (
-	"YoshinoGal/internal/scraper/structs"
+	"YoshinoGal/internal/scraper/types"
 	"bytes"
 	"encoding/json"
 	"github.com/pkg/errors"
@@ -35,11 +35,11 @@ var (
 )
 
 type SingleTitle struct {
-	language string // 地区
-	title    string //标题
-	main     bool   // 是否是主标题
-	official bool   // 是否被官方承认（？不确定
-	latin    string // 标题的拉丁语表示
+	Language string `json:"language"` // 地区
+	Title    string `json:"title"`    //标题
+	Main     bool   `json:"main"`     // 是否是主标题
+	Official bool   `json:"official"` // 是否被官方承认（？不确定
+	Latin    string `json:"latin"`    // 标题的拉丁语表示
 }
 
 type SingleScreenshot struct {
@@ -95,26 +95,25 @@ func ParseVNDBDescription(description string) string {
 	return strings.ReplaceAll(description, "\n", "<br>")
 }
 
-func ConvertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]structs.Galgame, error) {
+func ConvertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.Galgame, error) {
 	logrus.Debugf("总共搜索到了 %d 条游戏数据，开始尝试转换为内部源数据格式", len(VNDBResponse.Results))
-	var galgames []structs.Galgame
+	var galgames []types.Galgame
 	for _, g := range VNDBResponse.Results {
-		var names []structs.GalgameName
+		var names []types.GalgameName
 		for _, t := range g.Titles {
-			names = append(names, structs.GalgameName{
-				Language: t.language,
-				Title:    t.title,
-				Main:     t.main,
-				Official: t.official,
-				Latin:    t.latin,
+			names = append(names, types.GalgameName{
+				Language: t.Language,
+				Title:    t.Title,
+				Main:     t.Main,
+				Official: t.Official,
+				Latin:    t.Latin,
 			})
 		}
-		var gameRating = structs.GalgameRating{
-			VNDB: g.Rating,
+		var gameRating = types.GalgameRating{
+			VNDB: g.Rating / 10,
 		}
-		var metaSources = structs.GalgameSource{
-			VNDBUrl: "https://vndb.org/" + g.Id,
-			VNDBID:  g.Id,
+		var metaSources = types.GalgameMetadataSources{
+			VNDBID: g.Id,
 		}
 		var screenshotsUrls []string
 		for _, s := range g.Screenshots {
@@ -123,7 +122,7 @@ func ConvertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]structs.Galgame
 			}
 		}
 		var description = ParseVNDBDescription(g.Description)
-		var gal = structs.Galgame{
+		var gal = types.Galgame{
 			Name:            g.Title,
 			Names:           names,
 			ReleaseDate:     g.Released,
@@ -136,7 +135,7 @@ func ConvertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]structs.Galgame
 			DevStatus:       g.DevStatus,
 			ScreenshotsUrls: screenshotsUrls,
 		}
-		//galgame := structs.GalgameSearchResult{
+		//galgame := types.GalgameSearchResult{
 		//	Galgame: gal,
 		//	Source:  "VNDB",
 		//}
@@ -148,17 +147,14 @@ func ConvertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]structs.Galgame
 }
 
 // VNDBSearch 对VNDB进行搜索并返回结果，topR为返回结果的数量
-func VNDBSearch(gameName string, topR int) (map[string][]structs.Galgame, error) {
+func VNDBSearch(gameName string) (map[types.GalgameMetadataSource]types.Galgame, error) {
 	if gameName == "" {
 		return nil, errors.New("游戏名不能为空捏！")
-	}
-	if topR == 0 {
-		topR = 1
 	}
 	// 确保请求遵守流控限制
 	time.Sleep(time.Until(lastRequestTime.Add(requestInterval)))
 	lastRequestTime = time.Now()
-	var results []structs.Galgame
+	var results []types.Galgame
 
 	logrus.Infof("正在从VNDB中搜索游戏：%s", gameName)
 	// 不同的fields类型
@@ -223,7 +219,7 @@ func VNDBSearch(gameName string, topR int) (map[string][]structs.Galgame, error)
 		return nil, errors.New("没有搜索到相关游戏")
 	}
 
-	logrus.Debugf("VNDB搜索结果取前 %d 条", topR)
-	results = results[:topR]
-	return map[string][]structs.Galgame{"VNDB": results}, nil
+	result := results[0] // 只取第一条结果
+
+	return map[types.GalgameMetadataSource]types.Galgame{"VNDB": result}, nil
 }
