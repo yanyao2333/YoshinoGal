@@ -112,7 +112,7 @@ func ScrapOneGame(gameName string, priority []types.GalgameMetadataSource, gameD
 		go func(url string, i int) {
 			defer wg.Done()
 			concLimiter <- struct{}{} // 占用一个并发位
-			err := DownloadImage(url, gameDir+"/metadata/screenshot"+strconv.Itoa(i)+".jpg")
+			err := DownloadImage(url, gameDir+"/metadata/screenshot_"+strconv.Itoa(i)+".jpg")
 			if err != nil {
 				errsChan <- errors.Wrap(err, "下载截图时发生错误")
 			}
