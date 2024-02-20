@@ -1,7 +1,6 @@
 package game_play_time_monitor
 
 import (
-	"encoding/json"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"os"
@@ -19,41 +18,6 @@ var (
 	kernel32                      = syscall.NewLazyDLL("kernel32.dll")
 	procQueryFullProcessImageName = kernel32.NewProc("QueryFullProcessImageNameW")
 )
-
-// GamePlayTimeRecord 游戏的游玩时间记录结构
-type GamePlayTimeRecord struct {
-	Date         string // 日期，格式为 "2006-01-02"
-	PlayDuration int64  // 玩耍时长，单位为秒
-}
-
-// GamePlayTimeMap 游戏的游玩时间记录映射
-type GamePlayTimeMap map[string]map[string]int64 // 键为日期，值为每个游戏的玩耍时间
-
-// WriteGamePlayTimeToFile 写游戏玩耍时间到文件
-func WriteGamePlayTimeToFile(playTimeMap GamePlayTimeMap, gameFolder string) error {
-	// 确保目录存在
-	err := os.MkdirAll(filepath.Join(gameFolder, "metadata"), 0777)
-	if err != nil {
-		return errors.Wrap(err, "创建元数据目录失败")
-	}
-
-	// 构造要写入的文件路径
-	filePath := filepath.Join(gameFolder, "metadata", "play_time.json")
-
-	// 将游玩时间映射转换为JSON格式
-	playTimeData, err := json.Marshal(playTimeMap)
-	if err != nil {
-		return errors.Wrap(err, "转换游玩时间数据为JSON格式失败")
-	}
-
-	// 将JSON数据写入文件
-	err = os.WriteFile(filePath, playTimeData, 0644)
-	if err != nil {
-		return errors.Wrap(err, "写入游玩时间数据到文件失败")
-	}
-
-	return nil
-}
 
 type gameFolders []string
 
@@ -117,21 +81,6 @@ func monitorActiveWindows(gamesFolders gameFolders) {
 
 		time.Sleep(1 * time.Second)
 	}
-}
-
-// UpdateGamePlayTime 更新游戏的游玩时间记录
-func UpdateGamePlayTime(playTimeMap *GamePlayTimeMap, exePath string, startTime time.Time) {
-	// 获取日期字符串
-	date := startTime.Format("2006-01-02")
-
-	// 计算游玩时长
-	duration := time.Since(startTime).Seconds()
-
-	// 更新游玩时间记录
-	if _, ok := (*playTimeMap)[date]; !ok {
-		(*playTimeMap)[date] = make(map[string]int64)
-	}
-	(*playTimeMap)[date][exePath] += int64(duration)
 }
 
 // isExePathInGamesFolder 检查给定的可执行文件路径是否位于GameFolders中的任意一个文件夹下
