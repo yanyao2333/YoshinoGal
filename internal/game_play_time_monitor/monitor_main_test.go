@@ -8,7 +8,8 @@ import (
 func Test_monitorActiveWindows(t *testing.T) {
 	logrus.SetLevel(logrus.TraceLevel)
 	type args struct {
-		assumedGamesFolder string
+		gameBaseFolder       string
+		gamePlayTimeFilePath string
 	}
 	tests := []struct {
 		name string
@@ -17,18 +18,14 @@ func Test_monitorActiveWindows(t *testing.T) {
 		{
 			name: "TestMonitorActiveWindows",
 			args: args{
-				assumedGamesFolder: "E:\\GalGames",
+				gameBaseFolder:       "E:\\GalGames",
+				gamePlayTimeFilePath: "E:\\GalGames\\playTime.json",
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g, err := genGamesFoldersSlice(tt.args.assumedGamesFolder)
-			if err != nil {
-				t.Errorf("genGamesFoldersSlice() 在执行测试：%s  时发生错误了喵, error: %v", tt.name, err)
-				return
-			}
-			monitorActiveWindows(g)
+			gamePlayTimeMonitor(tt.args.gameBaseFolder, tt.args.gamePlayTimeFilePath)
 		})
 	}
 }
