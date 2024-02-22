@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"regexp"
@@ -71,8 +70,8 @@ type VNDBSearchResponse struct {
 	Results []VNDBSingleGame `json:"results"`
 }
 
-// ParseVNDBDescription VNDB简介中包含部分语法，解析为markdown
-func ParseVNDBDescription(description string) string {
+// parseVNDBDescription VNDB简介中包含部分语法，解析为markdown
+func parseVNDBDescription(description string) string {
 	replacements := map[string]string{
 		`([cdprsu]v\d+(\.\d+)?)`:       `<a href="https://vndb.org/$1">$1</a>`,
 		`(http[s]?://[^\s]+)`:          `<a href="$1">$1</a>`,
@@ -95,8 +94,8 @@ func ParseVNDBDescription(description string) string {
 	return strings.ReplaceAll(description, "\n", "<br>")
 }
 
-func ConvertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.Galgame, error) {
-	logrus.Debugf("总共搜索到了 %d 条游戏数据，开始尝试转换为内部源数据格式", len(VNDBResponse.Results))
+func convertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.Galgame, error) {
+	log.Debugf("总共搜索到了 %d 条游戏数据，开始尝试转换为内部源数据格式", len(VNDBResponse.Results))
 	var galgames []types.Galgame
 	for _, g := range VNDBResponse.Results {
 		var names []types.GalgameName
@@ -121,7 +120,7 @@ func ConvertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.Galgame, 
 				screenshotsUrls = append(screenshotsUrls, s.Url)
 			}
 		}
-		var description = ParseVNDBDescription(g.Description)
+		var description = parseVNDBDescription(g.Description)
 		var gal = types.Galgame{
 			Name:            g.Title,
 			Names:           names,
@@ -140,14 +139,17 @@ func ConvertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.Galgame, 
 		//	Source:  "VNDB",
 		//}
 		galgames = append(galgames, gal)
-		logrus.Debugf("成功转换了游戏数据：%s", g.Title)
-		logrus.Debugf("转换后的数据：%+v", gal)
+		log.Debugf("成功转换了游戏数据：%s", g.Title)
+		log.Debugf("转换后的数据：%+v", gal)
 	}
 	return galgames, nil
 }
 
-// VNDBSearch 对VNDB进行搜索并返回结果，topR为返回结果的数量
-func VNDBSearch(gameName string) (map[types.GalgameMetadataSource]types.Galgame, error) {
+// SearchInVNDB 对VNDB进行搜索并返回结果，topR为返回结果的数量
+func SearchInVNDB(gameName string) (map[string]types.Galgame, error) {
+	if log == nil {
+		InitLogger()
+	}
 	if gameName == "" {
 		return nil, errors.New("游戏名不能为空捏！")
 	}
@@ -156,7 +158,7 @@ func VNDBSearch(gameName string) (map[types.GalgameMetadataSource]types.Galgame,
 	lastRequestTime = time.Now()
 	var results []types.Galgame
 
-	logrus.Infof("正在从VNDB中搜索游戏：%s", gameName)
+	log.Infof("正在从VNDB中搜索游戏：%s", gameName)
 	// 不同的fields类型
 	const (
 		mainTitle     = "title"                                         // 主标题
@@ -195,7 +197,7 @@ func VNDBSearch(gameName string) (map[types.GalgameMetadataSource]types.Galgame,
 	// 我没搞懂这个限流是怎么回事，先注释掉
 	//executionTime := time.Since(startTime)
 	//if executionTime > time.Second {
-	//	logrus.Warn("访问VNDB时超过了每分钟最大间隔！歇一会喵~")
+	//	log.Warn("访问VNDB时超过了每分钟最大间隔！歇一会喵~")
 	//}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
@@ -210,7 +212,7 @@ func VNDBSearch(gameName string) (map[types.GalgameMetadataSource]types.Galgame,
 		return nil, errors.Wrap(err, "解析VNDB响应时发生错误")
 	}
 
-	results, err = ConvertToGalgameStruct(&apiResponse)
+	results, err = convertToGalgameStruct(&apiResponse)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "转换VNDB响应时发生错误")
@@ -221,5 +223,5 @@ func VNDBSearch(gameName string) (map[types.GalgameMetadataSource]types.Galgame,
 
 	result := results[0] // 只取第一条结果
 
-	return map[types.GalgameMetadataSource]types.Galgame{"VNDB": result}, nil
+	return map[string]types.Galgame{"VNDB": result}, nil
 }

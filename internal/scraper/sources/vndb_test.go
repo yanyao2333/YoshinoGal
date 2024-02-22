@@ -48,9 +48,9 @@ func TestVNDBSearch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := VNDBSearch(tt.args.gameName)
+			_, err := SearchInVNDB(tt.args.gameName)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("VNDBSearch 在执行测试：%s  时发生错误了喵, error: %v, wantErr %v", tt.name, err, tt.wantErr)
+				t.Errorf("SearchInVNDB 在执行测试：%s  时发生错误了喵, error: %v, wantErr %v", tt.name, err, tt.wantErr)
 			}
 		})
 	}

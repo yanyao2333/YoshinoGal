@@ -1,12 +1,10 @@
 package game_play_time_monitor
 
 import (
-	"github.com/sirupsen/logrus"
 	"testing"
 )
 
 func Test_monitorActiveWindows(t *testing.T) {
-	logrus.SetLevel(logrus.TraceLevel)
 	type args struct {
 		gameBaseFolder       string
 		gamePlayTimeFilePath string
@@ -24,8 +22,9 @@ func Test_monitorActiveWindows(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		//GamePlayTimeMonitor(tt.args.gameBaseFolder, tt.args.gamePlayTimeFilePath)
 		t.Run(tt.name, func(t *testing.T) {
-			gamePlayTimeMonitor(tt.args.gameBaseFolder, tt.args.gamePlayTimeFilePath)
+			StartMonitor(tt.args.gameBaseFolder, tt.args.gamePlayTimeFilePath)
 		})
 	}
 }

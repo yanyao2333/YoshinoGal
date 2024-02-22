@@ -1,17 +1,13 @@
 package scraper
 
 import (
-	"YoshinoGal/internal/scraper/types"
 	"testing"
 )
 
 func TestScanGamesAndScrape(t *testing.T) {
-	//logrus.SetReportCaller(true)
-	//logrus.SetLevel(logrus.TraceLevel)
-
 	type args struct {
 		directory string
-		priority  []types.GalgameMetadataSource
+		priority  []string
 	}
 	tests := []struct {
 		name    string
@@ -36,7 +32,7 @@ func TestScanGamesAndScrape(t *testing.T) {
 			name: "RealTest",
 			args: args{
 				directory: "E:\\GalGames",
-				priority:  []types.GalgameMetadataSource{"VNDB"},
+				priority:  []string{"VNDB"},
 			},
 			wantErr: false,
 		},
