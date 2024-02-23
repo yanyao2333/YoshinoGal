@@ -1,6 +1,13 @@
 package main
 
-import "YoshinoGal/internal/routers"
+import (
+	"YoshinoGal/internal/routers"
+	"flag"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+)
 
 //import "YoshinoGal/internal/game_play_time_monitor"
 //
@@ -27,6 +34,17 @@ import "YoshinoGal/internal/routers"
 //}
 
 func main() {
+	port := flag.Int("port", 8080, "a port to listen")
+	flag.Parse()
 	router := routers.SetupRouter()
-	router.Run(":8080")
+	err := router.Run(":" + strconv.Itoa(*port))
+	portWasUsedErrString := "Only one usage of each socket address (protocol/network address/port) is normally permitted"
+	if strings.Contains(err.Error(), portWasUsedErrString) {
+		fmt.Println("端口被占用！返回码：114514")
+		os.Exit(114514)
+	}
+	if err != nil {
+		fmt.Println("启动失败！返回码：1919810")
+		os.Exit(1919810)
+	}
 }
