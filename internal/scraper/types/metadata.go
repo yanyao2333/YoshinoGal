@@ -25,17 +25,19 @@ type GalgameName struct {
 
 // Galgame 定义游戏信息
 type Galgame struct {
-	Name            string                 `json:"name"`             // 主名称（即 GalNames中main official均为true的）
-	Names           []GalgameName          `json:"names"`            // 多地区名称
-	ReleaseDate     string                 `json:"release_date"`     // 发售日期
-	Score           GalgameRating          `json:"score"`            // 评分
-	PosterUrl       string                 `json:"poster_url"`       // 主海报地址
-	Description     string                 `json:"description"`      // 简介
-	MetadataSources GalgameMetadataSources `json:"metadata_sources"` // 元数据来源
-	LengthMinutes   int                    `json:"length_minutes"`   // 游玩时长
-	Length          int                    `json:"length"`           // vndb特供字段，在没有具体时长的情况下使用
-	DevStatus       int                    `json:"dev_status"`       // vndb特供字段，开发状态
-	ScreenshotsUrls []string               `json:"screenshots_urls"` // 截图地址
+	Name                  string                 `json:"name"`                    // 主名称（即 GalNames中main official均为true的）
+	Names                 []GalgameName          `json:"names"`                   // 多地区名称
+	ReleaseDate           string                 `json:"release_date"`            // 发售日期
+	Score                 GalgameRating          `json:"score"`                   // 评分
+	RemotePosterUrl       string                 `json:"remote_poster_url"`       // 主海报地址
+	Description           string                 `json:"description"`             // 简介
+	MetadataSources       GalgameMetadataSources `json:"metadata_sources"`        // 元数据来源
+	LengthMinutes         int                    `json:"length_minutes"`          // 游玩时长
+	Length                int                    `json:"length"`                  // vndb特供字段，在没有具体时长的情况下使用
+	DevStatus             int                    `json:"dev_status"`              // vndb特供字段，开发状态
+	RemoteScreenshotsUrls []string               `json:"remote_screenshots_urls"` // 截图地址
+	LocalPosterPath       string                 `json:"local_poster_path"`       // 本地海报地址
+	LocalScreenshotsPaths []string               `json:"local_screenshots_paths"` // 本地截图地址
 }
 
 //// GalgameSearchResult 一个中间结果，用于搜索结果的排序

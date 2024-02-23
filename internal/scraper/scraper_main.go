@@ -10,6 +10,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -29,6 +30,10 @@ func readMetadata(path string) (*types.Galgame, error) {
 		return nil, errors.Wrap(err, "解析元数据失败")
 	}
 	return &metadata, nil
+}
+
+func GetMetadata(gameDir string) (*types.Galgame, error) {
+	return readMetadata(gameDir + "/metadata/metadata.json")
 }
 
 // writeMetadata 将元数据写入给定路径
@@ -63,8 +68,58 @@ func downloadImage(url string, path string) error {
 	return nil
 }
 
+func readGamesIndex(path string) (map[string]string, error) {
+	file, err := os.ReadFile(path)
+	if err != nil {
+		return nil, errors.Wrap(err, "读取游戏索引失败")
+	}
+	var index map[string]string
+	err = json.Unmarshal(file, &index)
+	if err != nil {
+		return nil, errors.Wrap(err, "解析游戏索引失败")
+	}
+	return index, nil
+}
+
+func writeGamesIndex(path string, index map[string]string) error {
+	file, err := json.MarshalIndent(index, "", "    ")
+	if err != nil {
+		return errors.Wrap(err, "序列化游戏索引失败")
+	}
+	return os.WriteFile(path, file, 0777)
+}
+
+func GetGamesIndex(directory string) (map[string]string, error) {
+	return readGamesIndex(directory + "/.YoshinoGal/games_index.json")
+}
+
+func RefreshGamesIndex(directory string) error {
+	GamesIndex, err := readGamesIndex(directory + "/.YoshinoGal/games_index.json")
+	if err != nil {
+		return errors.WithMessage(err, "读取游戏索引失败")
+	}
+	files, err := os.ReadDir(directory)
+	if err != nil {
+		return errors.Wrap(err, "读取目录失败")
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			if strings.HasPrefix(file.Name(), ".") {
+				continue
+			}
+			GamesIndex[file.Name()] = directory + "/" + file.Name()
+		}
+	}
+	err = writeGamesIndex(directory+"/.YoshinoGal/games_index.json", GamesIndex)
+	if err != nil {
+		return errors.WithMessage(err, "写入游戏索引失败")
+	}
+	return nil
+
+}
+
 // ScrapOneGame 刮削一个游戏（包含元数据、封面图、截图等所有步骤） directlyRun 为false时表示是ScanGamesAndScrape调用的，为true时表示是直接调用的
-func ScrapOneGame(gameName string, priority []string, gameDir string) error {
+func ScrapOneGame(gameName string, priority []string, gameDir string, directlyRun bool) error {
 	if log == nil {
 		InitLogger()
 	}
@@ -92,32 +147,24 @@ func ScrapOneGame(gameName string, priority []string, gameDir string) error {
 		return errors.Wrap(err, "搜索游戏元数据时发生错误")
 	}
 
-	errsChan := make(chan error, len(metadata.ScreenshotsUrls)+1) // 用于收集下载错误
+	errsChan := make(chan error, len(metadata.RemoteScreenshotsUrls)+1) // 用于收集下载错误
 
-	// 写入元数据
-	log.Debugf("为游戏 %s 搜索元数据成功，开始写入元数据到 %s", gameName, gameDir)
-	metadataPath := gameDir + "/metadata/metadata.json"
-	err = writeMetadata(metadataPath, &metadata)
-	if err != nil {
-		GamesScrapeStatusMap[gameDir] = 2
-		return errors.Wrap(err, "写入游戏元数据时发生错误")
-	}
-	log.Debugf("为游戏 %s 写入元数据成功", gameName)
-
+	log.Debugf("为游戏 %s 搜索元数据成功，开始下载图片", gameName)
 	// 下载封面图
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		concLimiter <- struct{}{} // 占用一个并发位
-		err := downloadImage(metadata.PosterUrl, gameDir+"/metadata/poster.jpg")
+		err := downloadImage(metadata.RemotePosterUrl, gameDir+"/metadata/poster.jpg")
 		if err != nil {
 			errsChan <- errors.Wrap(err, "下载封面图时发生错误")
 		}
+		metadata.LocalPosterPath = gameDir + "/metadata/poster.jpg"
 		<-concLimiter // 释放并发位
 	}()
 
 	// 下载截图
-	for i, url := range metadata.ScreenshotsUrls {
+	for i, url := range metadata.RemoteScreenshotsUrls {
 		wg.Add(1)
 		go func(url string, i int) {
 			defer wg.Done()
@@ -126,6 +173,7 @@ func ScrapOneGame(gameName string, priority []string, gameDir string) error {
 			if err != nil {
 				errsChan <- errors.Wrap(err, "下载截图时发生错误")
 			}
+			metadata.LocalScreenshotsPaths = append(metadata.LocalScreenshotsPaths, gameDir+"/metadata/screenshot_"+strconv.Itoa(i)+".jpg")
 			<-concLimiter // 释放并发位
 		}(url, i)
 	}
@@ -144,14 +192,26 @@ func ScrapOneGame(gameName string, priority []string, gameDir string) error {
 		return downloadErrors[0]
 	}
 
+	// 写入元数据
+	log.Debugf("为游戏 %s 下载图片成功，开始写入元数据", gameName)
+	err = writeMetadata(gameDir+"/metadata/metadata.json", &metadata)
+	if err != nil {
+		GamesScrapeStatusMap[gameDir] = 2
+		return errors.WithMessage(err, "写入元数据失败")
+	}
+
 	log.Infof("为游戏 %s 刮削元数据成功，好耶！", gameName)
 	GamesScrapeStatusMap[gameDir] = 0
 	return nil
 }
 
-// ScanGamesAndScrape 遍历指定目录，为每个还没刮削的游戏刮削
+// ScanGamesAndScrape 遍历指定目录，为每个还没刮削的游戏刮削，并在所给目录的.yoshinogal隐藏文件夹下建立索引
 // 默认该目录下的所有一级子目录都是一个游戏目录 搜索时将以目录名作为游戏名
 func ScanGamesAndScrape(directory string, priority []string) error {
+	GamesIndex, err := readGamesIndex(directory + "/.YoshinoGal/games_index.json")
+	if err != nil {
+		GamesIndex = map[string]string{}
+	}
 	GamesScrapeStatusMap = map[string]int{}
 	ScrapeAllStatus = 1
 	if log == nil {
@@ -166,6 +226,9 @@ func ScanGamesAndScrape(directory string, priority []string) error {
 
 	for _, file := range files {
 		if file.IsDir() {
+			if strings.HasPrefix(file.Name(), ".") {
+				continue
+			}
 			GamesScrapeStatusMap[directory+"/"+file.Name()] = 3
 		}
 	}
@@ -173,6 +236,9 @@ func ScanGamesAndScrape(directory string, priority []string) error {
 	var wg sync.WaitGroup
 	for _, file := range files {
 		if !file.IsDir() {
+			continue
+		}
+		if strings.HasPrefix(file.Name(), ".") {
 			continue
 		}
 		file := file
@@ -185,7 +251,8 @@ func ScanGamesAndScrape(directory string, priority []string) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := ScrapOneGame(gameName, priority, directory+"/"+gameName)
+			err := ScrapOneGame(gameName, priority, directory+"/"+gameName, false)
+			GamesIndex[gameName] = directory + "/" + gameName
 			if err != nil {
 				log.Errorf("为游戏 %s 搜索元数据时发生错误：%s", gameName, err)
 			}
@@ -194,6 +261,11 @@ func ScanGamesAndScrape(directory string, priority []string) error {
 
 	wg.Wait()
 	log.Infof("所有游戏刮削完成，好耶！")
+	err = writeGamesIndex(directory+"/.YoshinoGal/games_index.json", GamesIndex)
+	if err != nil {
+		ScrapeAllStatus = 2
+		return errors.WithMessage(err, "写入游戏索引时发生错误")
+	}
 	ScrapeAllStatus = 0
 	return nil
 }
