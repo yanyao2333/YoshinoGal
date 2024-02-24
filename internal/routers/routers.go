@@ -80,7 +80,7 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	router.GET("/library/index/get", func(c *gin.Context) {
+	router.POST("/library/index/get", func(c *gin.Context) {
 		json := GetLibraryIndex{}
 		err := c.BindJSON(&json)
 		if err != nil {
@@ -107,7 +107,7 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	router.GET("/library/index/posterwall", func(c *gin.Context) {
+	router.POST("/library/index/posterwall", func(c *gin.Context) {
 		json := PosterWallIndex{}
 		err := c.BindJSON(&json)
 		if err != nil {
@@ -138,7 +138,7 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	router.GET("/library/metadata/get/one", func(c *gin.Context) {
+	router.POST("/library/metadata/get/one", func(c *gin.Context) {
 		jsonData := GetOneMetadata{}
 		err := c.BindJSON(&jsonData)
 		if err != nil {
