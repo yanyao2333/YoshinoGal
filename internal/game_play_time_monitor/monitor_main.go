@@ -12,6 +12,8 @@ import (
 	"unsafe"
 )
 
+var GamePlayManager = NewGamePlayTimeManager()
+
 var (
 	user32                        = syscall.NewLazyDLL("user32.dll")
 	procGetForegroundWindow       = user32.NewProc("GetForegroundWindow")
@@ -57,6 +59,13 @@ func NewGamePlayTimeManager() *GamePlayTimeManager {
 	return &GamePlayTimeManager{
 		PlayTimeMap: make(map[string]*gameFolderPlayTime),
 	}
+}
+
+func GetOneGamePlayTime(folderPath string) int64 {
+	if folderPlayTime, ok := GamePlayManager.PlayTimeMap[folderPath]; ok {
+		return folderPlayTime.TotalPlayTime
+	}
+	return 0
 }
 
 func (manager *GamePlayTimeManager) addGamePlayTime(info gamePlayTimeInfo) {
@@ -156,7 +165,6 @@ func writeGamePlayTimeToFile(manager *GamePlayTimeManager, filePath string) erro
 // GamePlayTimeMonitor 监控当前活动窗口，记录每个游戏的聚焦时间
 func GamePlayTimeMonitor(gameBaseFolder, gamePlayTimeFilePath string) {
 	log.Infof("开始监控活动窗口，游戏文件夹路径：%s", gameBaseFolder)
-	gamePlayTimeManager := NewGamePlayTimeManager()
 	var lastActiveWindowFolderPath string // 注意 是exe文件所属的文件夹路径
 	var lastActiveWindowExePath string    // 注意 是exe文件路径
 	var lastActiveWindowStartTime time.Time
@@ -175,7 +183,7 @@ func GamePlayTimeMonitor(gameBaseFolder, gamePlayTimeFilePath string) {
 		log.Errorf("无法读取游戏时长数据：%v", err)
 	}
 	if g != nil {
-		gamePlayTimeManager = g
+		GamePlayManager = g
 	}
 
 	for {
@@ -199,7 +207,7 @@ func GamePlayTimeMonitor(gameBaseFolder, gamePlayTimeFilePath string) {
 			}
 		case <-saveGamePlayTimeTicker.C:
 			log.Debugf("开始保存游戏时长数据到 %s", gamePlayTimeFilePath)
-			err := writeGamePlayTimeToFile(gamePlayTimeManager, gamePlayTimeFilePath)
+			err := writeGamePlayTimeToFile(GamePlayManager, gamePlayTimeFilePath)
 			if err != nil {
 				log.Errorf("无法保存游戏时长数据：%v", err)
 			}
@@ -224,13 +232,13 @@ func GamePlayTimeMonitor(gameBaseFolder, gamePlayTimeFilePath string) {
 			if folderPath != lastActiveWindowFolderPath {
 				if lastActiveWindowFolderPath != "" {
 					totalFocusTime := int64(time.Since(lastActiveWindowStartTime).Seconds())
-					gamePlayTimeManager.addGamePlayTime(gamePlayTimeInfo{
+					GamePlayManager.addGamePlayTime(gamePlayTimeInfo{
 						FolderPath:      lastActiveWindowFolderPath,
 						ExePath:         exePath,
 						Date:            today,
 						EachExePlayTime: totalFocusTime,
 					})
-					log.Debugf("游戏文件夹路径: %s, 今天共游玩时间: %d s", lastActiveWindowFolderPath, gamePlayTimeManager.PlayTimeMap[lastActiveWindowFolderPath].TotalPlayTime)
+					log.Debugf("游戏文件夹路径: %s, 今天共游玩时间: %d s", lastActiveWindowFolderPath, GamePlayManager.PlayTimeMap[lastActiveWindowFolderPath].TotalPlayTime)
 					//logrus.Debugf("all gameFocusTimeMap: %v", gameFocusTimeMap)
 				}
 				lastActiveWindowFolderPath = folderPath
@@ -239,13 +247,13 @@ func GamePlayTimeMonitor(gameBaseFolder, gamePlayTimeFilePath string) {
 			}
 		} else if lastActiveWindowFolderPath != "" {
 			totalFocusTime := int64(time.Since(lastActiveWindowStartTime).Seconds())
-			gamePlayTimeManager.addGamePlayTime(gamePlayTimeInfo{
+			GamePlayManager.addGamePlayTime(gamePlayTimeInfo{
 				FolderPath:      lastActiveWindowFolderPath,
 				ExePath:         lastActiveWindowExePath,
 				Date:            today,
 				EachExePlayTime: totalFocusTime,
 			})
-			log.Debugf("游戏文件夹路径: %s, 今天共游玩时间: %d s", lastActiveWindowFolderPath, gamePlayTimeManager.PlayTimeMap[lastActiveWindowFolderPath].TotalPlayTime)
+			log.Debugf("游戏文件夹路径: %s, 今天共游玩时间: %d s", lastActiveWindowFolderPath, GamePlayManager.PlayTimeMap[lastActiveWindowFolderPath].TotalPlayTime)
 			//logrus.Debugf("all gameFocusTimeMap: %v", gameFocusTimeMap)
 			lastActiveWindowFolderPath = ""
 			lastActiveWindowExePath = ""

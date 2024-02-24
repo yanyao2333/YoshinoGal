@@ -138,6 +138,25 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
+	router.POST("/playtime/get/one", func(c *gin.Context) {
+		json := GetOneGamePlayTime{}
+		err := c.BindJSON(&json)
+		if err != nil {
+			log.Errorf("请求格式错误: %s", err)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "请求格式错误",
+				"code":    FAIL,
+			})
+			return
+		}
+		playTime := game_play_time_monitor.GetOneGamePlayTime(json.Directory)
+		c.JSON(http.StatusOK, gin.H{
+			"code":    SUCCESS,
+			"message": "获取游戏时长成功",
+			"data":    playTime,
+		})
+	})
+
 	router.POST("/library/metadata/get/one", func(c *gin.Context) {
 		jsonData := GetOneMetadata{}
 		err := c.BindJSON(&jsonData)

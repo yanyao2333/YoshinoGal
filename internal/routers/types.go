@@ -31,3 +31,8 @@ type GetOneMetadata struct {
 	GameName  string `json:"game_name" binding:"required"`
 	Directory string `json:"directory" binding:"required"`
 }
+
+// GetOneGamePlayTime /playtime/get/one
+type GetOneGamePlayTime struct {
+	Directory string `json:"directory" binding:"required"`
+}
