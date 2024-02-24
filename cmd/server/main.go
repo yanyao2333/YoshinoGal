@@ -4,6 +4,7 @@ import (
 	"YoshinoGal/internal/routers"
 	"flag"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"os"
 	"strconv"
 	"strings"
@@ -34,6 +35,7 @@ import (
 //}
 
 func main() {
+	gin.SetMode(gin.ReleaseMode)
 	port := flag.Int("port", 8080, "a port to listen")
 	flag.Parse()
 	router := routers.SetupRouter()

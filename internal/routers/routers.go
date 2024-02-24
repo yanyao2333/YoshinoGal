@@ -6,6 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"os"
+	"path"
+	"strings"
 )
 
 var (
@@ -22,6 +24,20 @@ func SetupRouter() *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Ciallo～(∠・ω< )",
 		})
+	})
+
+	router.GET("/img/*path", func(c *gin.Context) {
+		imagePath := c.Param("path")
+		fileName := path.Base(imagePath)
+		if !strings.Contains(fileName, "screenshot") && !strings.Contains(fileName, "poster") {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "非法请求",
+				"code":    FAIL,
+			})
+			return
+		}
+		log.Infof("请求图片: %s", imagePath)
+		c.File(imagePath[1:])
 	})
 
 	// 执行ScanGamesAndScrape 识别一个目录下的所有游戏并进行刮削
