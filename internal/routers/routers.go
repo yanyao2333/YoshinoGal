@@ -40,8 +40,9 @@ func EnsureLibraryInitialized() gin.HandlerFunc {
 func SetupRouter() *gin.Engine {
 	InitLogger()
 	router := gin.Default()
+	router.Use(gin.Recovery())
 
-	router.Group("/library", EnsureLibraryInitialized())
+	libraryGroup := router.Group("/library").Use(EnsureLibraryInitialized())
 
 	// 基础路由
 	router.GET("/", func(c *gin.Context) {
@@ -50,7 +51,7 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	router.POST("/library/load", func(c *gin.Context) {
+	libraryGroup.POST("/load", func(c *gin.Context) {
 		json := LoadLibrary{}
 		err := c.BindJSON(&json)
 		if err != nil {
@@ -91,7 +92,7 @@ func SetupRouter() *gin.Engine {
 	})
 
 	// 执行ScanGamesAndScrape 识别一个目录下的所有游戏并进行刮削
-	router.POST("/library/scrape/all/run", func(c *gin.Context) {
+	libraryGroup.POST("/scrape/all/run", func(c *gin.Context) {
 		if scraper.ScrapeAllStatus == 1 {
 			c.JSON(http.StatusOK, gin.H{
 				"code":    FAIL,
@@ -112,7 +113,7 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	router.GET("/library/index/get", func(c *gin.Context) {
+	libraryGroup.GET("/index/get", func(c *gin.Context) {
 		GamesIndex, err := gameLibrary.GetGameIndex()
 		if err != nil {
 			log.Errorf("获取索引失败: %s", err)
@@ -129,7 +130,7 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	router.POST("/library/index/posterwall", func(c *gin.Context) {
+	libraryGroup.POST("/index/posterwall", func(c *gin.Context) {
 		posterwallIndex := map[string]string{}
 		gamesIndex, err := gameLibrary.GetGameIndex()
 		if err != nil {
@@ -151,7 +152,7 @@ func SetupRouter() *gin.Engine {
 	})
 
 	// 获取单个游戏的游戏时长
-	router.POST("/library/game/playtime/total", func(c *gin.Context) {
+	libraryGroup.POST("/game/playtime/total", func(c *gin.Context) {
 		json := INeedGameName{}
 		err := c.BindJSON(&json)
 		if err != nil {
@@ -178,7 +179,7 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	router.POST("/library/game/metadata", func(c *gin.Context) {
+	libraryGroup.POST("/game/metadata", func(c *gin.Context) {
 		jsonData := INeedGameName{}
 		err := c.BindJSON(&jsonData)
 		if err != nil {
@@ -228,7 +229,7 @@ func SetupRouter() *gin.Engine {
 	//	})
 	//})
 
-	router.GET("/library/scrape/all/status", func(c *gin.Context) {
+	libraryGroup.GET("/scrape/all/status", func(c *gin.Context) {
 		if scraper.ScrapeAllStatus == 1 {
 			c.JSON(http.StatusOK, gin.H{
 				"code":             SUCCESS,
@@ -253,7 +254,7 @@ func SetupRouter() *gin.Engine {
 		}
 	})
 
-	router.POST("/library/playtime/monitor/start", func(c *gin.Context) {
+	libraryGroup.POST("/playtime/monitor/start", func(c *gin.Context) {
 		if playtime.MonitorRunningStatusFlag == true {
 			c.JSON(http.StatusOK, gin.H{
 				"code":    FAIL,
@@ -270,7 +271,7 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	router.GET("/library/playtime/monitor/status", func(c *gin.Context) {
+	libraryGroup.GET("/playtime/monitor/status", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    SUCCESS,
 			"message": "游戏时长监控器状态获取成功",
@@ -278,7 +279,7 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	router.POST("/library/playtime/monitor/stop", func(c *gin.Context) {
+	libraryGroup.POST("/playtime/monitor/stop", func(c *gin.Context) {
 		playtime.MonitorStopFlag = true
 		c.JSON(http.StatusOK, gin.H{
 			"code":    SUCCESS,
