@@ -1,6 +1,7 @@
 package scraper
 
 import (
+	"YoshinoGal/internal/library"
 	"testing"
 )
 
@@ -37,9 +38,10 @@ func TestScanGamesAndScrape(t *testing.T) {
 			wantErr: false,
 		},
 	}
+	lib, _ := library.InitGameLibrary("E:\\GalGames")
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := ScanGamesAndScrape(tt.args.directory, tt.args.priority); (err != nil) != tt.wantErr {
+			if err := ScanGamesAndScrape(tt.args.directory, tt.args.priority, lib); (err != nil) != tt.wantErr {
 				t.Errorf("ScanGamesAndScrape 在执行测试：%s  时发生错误了喵, error: %v, wantErr %v", tt.name, err, tt.wantErr)
 			}
 		})

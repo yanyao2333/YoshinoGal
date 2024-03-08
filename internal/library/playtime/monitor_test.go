@@ -1,4 +1,4 @@
-package game_play_time_monitor
+package playtime
 
 import (
 	"testing"

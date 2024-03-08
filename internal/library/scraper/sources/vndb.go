@@ -1,7 +1,7 @@
 package sources
 
 import (
-	"YoshinoGal/internal/scraper/types"
+	"YoshinoGal/internal/library/types"
 	"bytes"
 	"encoding/json"
 	"github.com/pkg/errors"
@@ -63,6 +63,16 @@ type VNDBSingleGame struct {
 	} `json:"image"`
 	Length      int    `json:"length"`
 	Description string `json:"description"`
+	Developers  []struct {
+		Name        string `json:"name"`
+		Id          string `json:"id"`
+		Description string `json:"description"`
+	} `json:"developers"`
+	IsR18 bool `json:"is_r18"`
+	Tags  []struct {
+		Name string `json:"name"`
+		Id   string `json:"id"`
+	} `json:"tags"`
 }
 
 type VNDBSearchResponse struct {
@@ -94,9 +104,9 @@ func parseVNDBDescription(description string) string {
 	return strings.ReplaceAll(description, "\n", "<br>")
 }
 
-func convertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.Galgame, error) {
+func convertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.GalgameMetadata, error) {
 	log.Debugf("总共搜索到了 %d 条游戏数据，开始尝试转换为内部源数据格式", len(VNDBResponse.Results))
-	var galgames []types.Galgame
+	var galgames []types.GalgameMetadata
 	for _, g := range VNDBResponse.Results {
 		var names []types.GalgameName
 		for _, t := range g.Titles {
@@ -114,14 +124,26 @@ func convertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.Galgame, 
 		var metaSources = types.GalgameMetadataSources{
 			VNDBID: g.Id,
 		}
+		var developers []types.Developers
+		for _, t := range g.Developers {
+			developers = append(developers, types.Developers{
+				Name:        t.Name,
+				VNDBId:      t.Id,
+				Description: t.Description,
+			})
+		}
 		var screenshotsUrls []string
 		for _, s := range g.Screenshots {
 			if s.Sexual < 0.5 && s.Violence < 0.5 {
 				screenshotsUrls = append(screenshotsUrls, s.Url)
 			}
 		}
+		var tags []string
+		for _, t := range g.Tags {
+			tags = append(tags, t.Name)
+		}
 		var description = parseVNDBDescription(g.Description)
-		var gal = types.Galgame{
+		var gal = types.GalgameMetadata{
 			Name:                  g.Title,
 			Names:                 names,
 			ReleaseDate:           g.Released,
@@ -133,11 +155,12 @@ func convertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.Galgame, 
 			Length:                g.Length,
 			DevStatus:             g.DevStatus,
 			RemoteScreenshotsUrls: screenshotsUrls,
-			LocalPosterPath:       "",
-			LocalScreenshotsPaths: nil,
+			Developers:            developers,
+			IsR18:                 g.IsR18,
+			Tags:                  tags,
 		}
 		//galgame := types.GalgameSearchResult{
-		//	Galgame: gal,
+		//	GalgameMetadata: gal,
 		//	Source:  "VNDB",
 		//}
 		galgames = append(galgames, gal)
@@ -147,8 +170,53 @@ func convertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.Galgame, 
 	return galgames, nil
 }
 
-// SearchInVNDB 对VNDB进行搜索并返回结果，topR为返回结果的数量
-func SearchInVNDB(gameName string) (map[string]types.Galgame, error) {
+type R18Response struct {
+	Results []struct {
+		Minage int    `json:"minage"`
+		Id     string `json:"id"`
+	} `json:"results"`
+}
+
+// GetIsR18 获取游戏是否为R18
+func GetIsR18(gameName string) (bool, error) {
+	const isR18 = "minage"
+	r18ReqBody := map[string]interface{}{
+		"filters": []interface{}{"search", "=", gameName},
+		"fields":  isR18,
+	}
+	r18ReqBodyBytes, _ := json.Marshal(r18ReqBody)
+	r18Req, _ := http.NewRequest("POST", "https://api.vndb.org/kana/release", bytes.NewBuffer(r18ReqBodyBytes))
+	r18Req.Header.Set("Content-Type", "application/json")
+	r18C := &http.Client{}
+	r18Resp, err := r18C.Do(r18Req)
+	if err != nil {
+		return false, errors.Wrap(err, "请求VNDB时发生错误，无法判断是否为R18")
+	}
+	defer r18Resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(r18Resp.Body)
+	if err != nil {
+		return false, errors.Wrap(err, "读取VNDB响应时发生错误，无法判断是否为R18")
+	}
+
+	var r18APIResp R18Response
+
+	err = json.Unmarshal(bodyBytes, &r18APIResp)
+	if err != nil {
+		return false, errors.Wrap(err, "解析VNDB响应时发生错误，无法判断是否为R18")
+	}
+
+	for _, i := range r18APIResp.Results {
+		if i.Minage > 18 {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// SearchInVNDB 对VNDB进行搜索并返回结果
+func SearchInVNDB(gameName string) (map[string]types.GalgameMetadata, error) {
 	if log == nil {
 		InitLogger()
 	}
@@ -158,7 +226,7 @@ func SearchInVNDB(gameName string) (map[string]types.Galgame, error) {
 	// 确保请求遵守流控限制
 	time.Sleep(time.Until(lastRequestTime.Add(requestInterval)))
 	lastRequestTime = time.Now()
-	var results []types.Galgame
+	var results []types.GalgameMetadata
 
 	log.Infof("正在从VNDB中搜索游戏：%s", gameName)
 	// 不同的fields类型
@@ -174,9 +242,11 @@ func SearchInVNDB(gameName string) (map[string]types.Galgame, error) {
 		rating        = "rating"                                        // 评分，10-100 需自行转换为1-10
 		screenshots   = "screenshots{url, sexual, violence, votecount}" // 游戏截图 将来作为游戏详情页的背景使用 选择优先级为优先选择投票数最高 且色情、暴力指数在0.5以下的
 		description   = "description"                                   // 简介
+		developers    = "developers{name, id, description}"             // 开发商
+		tags          = "tags{name}"                                    // 标签
 	)
 
-	params := []string{mainTitle, titles, poster, lengthMinutes, length, id, devStatus, released, rating, screenshots, description}
+	params := []string{mainTitle, titles, poster, lengthMinutes, length, id, devStatus, released, rating, screenshots, description, developers, tags}
 
 	// 构建请求体
 	requestBody := map[string]interface{}{
@@ -201,6 +271,11 @@ func SearchInVNDB(gameName string) (map[string]types.Galgame, error) {
 	//if executionTime > time.Second {
 	//	log.Warn("访问VNDB时超过了每分钟最大间隔！歇一会喵~")
 	//}
+	r18, err := GetIsR18(gameName)
+	if err != nil {
+		log.Errorf("无法判断游戏是否为R18：%v", err)
+		log.Errorf("默认为非R18")
+	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -214,6 +289,11 @@ func SearchInVNDB(gameName string) (map[string]types.Galgame, error) {
 		return nil, errors.Wrap(err, "解析VNDB响应时发生错误")
 	}
 
+	if len(apiResponse.Results) == 0 {
+		return nil, errors.New("没有搜索到相关游戏")
+	}
+	apiResponse.Results[0].IsR18 = r18
+
 	results, err = convertToGalgameStruct(&apiResponse)
 
 	if err != nil {
@@ -225,5 +305,5 @@ func SearchInVNDB(gameName string) (map[string]types.Galgame, error) {
 
 	result := results[0] // 只取第一条结果
 
-	return map[string]types.Galgame{"VNDB": result}, nil
+	return map[string]types.GalgameMetadata{"VNDB": result}, nil
 }

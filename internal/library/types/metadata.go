@@ -23,8 +23,15 @@ type GalgameName struct {
 	Latin    string `json:"latin"`    // 标题的拉丁语表示
 }
 
-// Galgame 定义游戏信息
-type Galgame struct {
+// Developers 定义开发商信息
+type Developers struct {
+	Name        string `json:"name"`
+	VNDBId      string `json:"vndb_id"`
+	Description string `json:"description"`
+}
+
+// GalgameMetadata
+type GalgameMetadata struct {
 	Name                  string                 `json:"name"`                    // 主名称（即 GalNames中main official均为true的）
 	Names                 []GalgameName          `json:"names"`                   // 多地区名称
 	ReleaseDate           string                 `json:"release_date"`            // 发售日期
@@ -36,12 +43,31 @@ type Galgame struct {
 	Length                int                    `json:"length"`                  // vndb特供字段，在没有具体时长的情况下使用
 	DevStatus             int                    `json:"dev_status"`              // vndb特供字段，开发状态
 	RemoteScreenshotsUrls []string               `json:"remote_screenshots_urls"` // 截图地址
-	LocalPosterPath       string                 `json:"local_poster_path"`       // 本地海报地址
-	LocalScreenshotsPaths []string               `json:"local_screenshots_paths"` // 本地截图地址
+	//LocalPosterPath       string                 `json:"local_poster_path"`       // 本地海报地址
+	//LocalScreenshotsPaths []string               `json:"local_screenshots_paths"` // 本地截图地址
+	Developers   []Developers     `json:"developers"` // 开发商
+	IsR18        bool             `json:"is_r18"`     // 是否是R18游戏
+	Tags         []string         `json:"tags"`       // 标签
+	GalGameLocal GalgameLocalInfo `json:"local_info"` // 本地游戏信息
+}
+
+// GalgamePlayTime 用于记录游戏的游玩时长
+type GalgamePlayTime struct {
+	TotalTime   int64            `json:"total_time"`    // 总游玩时长
+	LastTime    int64            `json:"last_time"`     // 最后游玩时间
+	EachDayTime map[string]int64 `json:"each_exe_time"` // 每天游玩时长
+}
+
+// GalgameLocalInfo 本地游戏信息（包含截图、海报保存位置、游玩时长等等数据）
+type GalgameLocalInfo struct {
+	LocalPosterPath       string          `json:"local_poster_path"`       // 本地海报地址
+	LocalScreenshotsPaths []string        `json:"local_screenshots_paths"` // 本地截图地址
+	GameDirPath           string          `json:"game_dir_path"`           // 游戏目录地址
+	PlayTime              GalgamePlayTime `json:"play_time"`               // 游玩时长
 }
 
 //// GalgameSearchResult 一个中间结果，用于搜索结果的排序
 //type GalgameSearchResult struct {
-//	Galgame
+//	GalgameMetadata
 //	Source string // 搜索来源，用于后期根据优先级进行排序
 //}

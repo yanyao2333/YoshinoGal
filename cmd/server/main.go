@@ -4,16 +4,15 @@ import (
 	"YoshinoGal/internal/routers"
 	"flag"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"os"
 	"strconv"
 	"strings"
 )
 
-//import "YoshinoGal/internal/game_play_time_monitor"
+//import "YoshinoGal/internal/playtime"
 //
 //func main() {
-//	game_play_time_monitor.GamePlayTimeMonitor("E:\\GalGames", "E:\\GalGames\\playTime.json")
+//	playtime.GamePlayTimeMonitor("E:\\GalGames", "E:\\GalGames\\playTime.json")
 //	//	var a, _ = astilectron.New(log.New(os.Stderr, "", 0), astilectron.Options{
 //	//		AppName:            "cool",
 //	//		BaseDirectoryPath:  "./",
@@ -35,7 +34,7 @@ import (
 //}
 
 func main() {
-	gin.SetMode(gin.ReleaseMode)
+	//gin.SetMode(gin.ReleaseMode)
 	port := flag.Int("port", 8080, "a port to listen")
 	flag.Parse()
 	router := routers.SetupRouter()

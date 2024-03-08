@@ -1,11 +1,12 @@
 package routers
 
 import (
-	"YoshinoGal/internal/game_play_time_monitor"
-	"YoshinoGal/internal/scraper"
+	"YoshinoGal/internal/library"
+	"YoshinoGal/internal/library/database"
+	"YoshinoGal/internal/library/playtime"
+	"YoshinoGal/internal/library/scraper"
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"os"
 	"path"
 	"strings"
 )
@@ -15,14 +16,63 @@ var (
 	FAIL    = 1
 )
 
+var gameLibrary *database.SqliteGameLibrary
+
+func EnsureLibraryInitialized() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.FullPath() == "/library/load" {
+			c.Next()
+			return
+		}
+		if gameLibrary == nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "游戏库未初始化！请先通过 /library/load 初始化游戏库",
+				"code":    FAIL,
+			})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
 func SetupRouter() *gin.Engine {
 	InitLogger()
 	router := gin.Default()
+
+	router.Group("/library", EnsureLibraryInitialized())
 
 	// 基础路由
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Ciallo～(∠・ω< )",
+		})
+	})
+
+	router.POST("/library/load", func(c *gin.Context) {
+		json := LoadLibrary{}
+		err := c.BindJSON(&json)
+		if err != nil {
+			log.Errorf("请求格式错误: %s", err)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "请求格式错误",
+				"code":    FAIL,
+			})
+			return
+		}
+		gameLibrary, err = library.InitGameLibrary(json.Directory)
+		if err != nil {
+			log.Errorf("初始化游戏库失败: %s", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "初始化游戏库失败",
+				"code":    FAIL,
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message": "初始化游戏库成功",
+			"code":    SUCCESS,
 		})
 	})
 
@@ -42,25 +92,6 @@ func SetupRouter() *gin.Engine {
 
 	// 执行ScanGamesAndScrape 识别一个目录下的所有游戏并进行刮削
 	router.POST("/library/scrape/all/run", func(c *gin.Context) {
-		json := LibraryScraperAll{}
-		err := c.BindJSON(&json)
-		if err != nil {
-			log.Errorf("请求格式错误: %s", err)
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "请求格式错误",
-				"code":    FAIL,
-			})
-			return
-		}
-		err = os.MkdirAll(json.Directory+"/.YoshinoGal", 0777)
-		if err != nil {
-			log.Errorf("创建.YoshinoGal目录失败: %s", err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code":    FAIL,
-				"message": "创建" + json.Directory + "/.YoshinoGal目录失败",
-			})
-			return
-		}
 		if scraper.ScrapeAllStatus == 1 {
 			c.JSON(http.StatusOK, gin.H{
 				"code":    FAIL,
@@ -69,7 +100,8 @@ func SetupRouter() *gin.Engine {
 			return
 		}
 		go func() {
-			err := scraper.ScanGamesAndScrape(json.Directory, json.Priority)
+			pri := []string{"VNDB"}
+			err := scraper.ScanGamesAndScrape(gameLibrary.LibraryDir, pri, gameLibrary)
 			if err != nil {
 				log.Errorf("刮削失败: %s", err)
 			}
@@ -80,18 +112,8 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	router.POST("/library/index/get", func(c *gin.Context) {
-		json := GetLibraryIndex{}
-		err := c.BindJSON(&json)
-		if err != nil {
-			log.Errorf("请求格式错误: %s", err)
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "请求格式错误",
-				"code":    FAIL,
-			})
-			return
-		}
-		GamesIndex, err := scraper.GetGamesIndex(json.Directory)
+	router.GET("/library/index/get", func(c *gin.Context) {
+		GamesIndex, err := gameLibrary.GetGameIndex()
 		if err != nil {
 			log.Errorf("获取索引失败: %s", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -108,18 +130,8 @@ func SetupRouter() *gin.Engine {
 	})
 
 	router.POST("/library/index/posterwall", func(c *gin.Context) {
-		json := PosterWallIndex{}
-		err := c.BindJSON(&json)
-		if err != nil {
-			log.Errorf("请求格式错误: %s", err)
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "请求格式错误",
-				"code":    FAIL,
-			})
-			return
-		}
 		posterwallIndex := map[string]string{}
-		gamesIndex, err := scraper.GetGamesIndex(json.Directory)
+		gamesIndex, err := gameLibrary.GetGameIndex()
 		if err != nil {
 			log.Errorf("获取索引失败: %s", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -138,8 +150,9 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	router.POST("/playtime/get/one", func(c *gin.Context) {
-		json := GetOneGamePlayTime{}
+	// 获取单个游戏的游戏时长
+	router.POST("/library/game/playtime/total", func(c *gin.Context) {
+		json := INeedGameName{}
 		err := c.BindJSON(&json)
 		if err != nil {
 			log.Errorf("请求格式错误: %s", err)
@@ -149,16 +162,24 @@ func SetupRouter() *gin.Engine {
 			})
 			return
 		}
-		playTime := game_play_time_monitor.GetOneGamePlayTime(json.Directory)
+		playTime, err := gameLibrary.GetGamePlayTime(json.GameName, "")
+		if err != nil {
+			log.Errorf("获取游戏时长失败: %s", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code":    FAIL,
+				"message": "获取游戏时长失败",
+			})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"code":    SUCCESS,
 			"message": "获取游戏时长成功",
-			"data":    playTime,
+			"data":    playTime.TotalTime,
 		})
 	})
 
-	router.POST("/library/metadata/get/one", func(c *gin.Context) {
-		jsonData := GetOneMetadata{}
+	router.POST("/library/game/metadata", func(c *gin.Context) {
+		jsonData := INeedGameName{}
 		err := c.BindJSON(&jsonData)
 		if err != nil {
 			log.Errorf("请求格式错误: %s", err)
@@ -168,60 +189,44 @@ func SetupRouter() *gin.Engine {
 			})
 			return
 		}
-		GamesIndex, err := scraper.GetGamesIndex(jsonData.Directory)
-		if err != nil {
-			log.Errorf("获取索引失败: %s", err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code":    FAIL,
-				"message": "获取索引失败",
-			})
-			return
-		}
-		gameDir, exists := GamesIndex[jsonData.GameName]
-		if !exists {
-			c.JSON(http.StatusOK, gin.H{
-				"code":    FAIL,
-				"message": "游戏不存在",
-			})
-			return
-		}
-		metadata, err := scraper.GetMetadata(gameDir)
+		metadata, err := gameLibrary.GetGameDataByName(jsonData.GameName)
 		c.JSON(http.StatusOK, gin.H{
 			"code":    SUCCESS,
-			"message": "获取索引成功",
+			"message": "获取元数据成功",
 			"data":    metadata,
 		})
 	})
 
-	router.POST("/library/index/refresh", func(c *gin.Context) {
-		json := LibraryIndexRefresh{}
-		err := c.BindJSON(&json)
-		if err != nil {
-			log.Errorf("请求格式错误: %s", err)
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "请求格式错误",
-				"code":    FAIL,
-			})
-			return
-		}
-		err = os.MkdirAll(json.Directory+"/.YoshinoGal", 0777)
-		if err != nil {
-			log.Errorf("创建.YoshinoGal目录失败: %s", err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code":    FAIL,
-				"message": "创建" + json.Directory + "/.YoshinoGal目录失败",
-			})
-			return
-		}
-		err = scraper.RefreshGamesIndex(json.Directory)
-		if err != nil {
-			log.Errorf("刷新失败: %s", err)
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"code":    SUCCESS,
-			"message": "咱收到刷新索引请求了喵！正在处理~",
-		})
-	})
+	// 后期会替换为watchdog
+	//router.POST("/library/index/refresh", func(c *gin.Context) {
+	//	json := LibraryIndexRefresh{}
+	//	err := c.BindJSON(&json)
+	//	if err != nil {
+	//		log.Errorf("请求格式错误: %s", err)
+	//		c.JSON(http.StatusBadRequest, gin.H{
+	//			"message": "请求格式错误",
+	//			"code":    FAIL,
+	//		})
+	//		return
+	//	}
+	//	err = os.MkdirAll(json.Directory+"/.YoshinoGal", 0777)
+	//	if err != nil {
+	//		log.Errorf("创建.YoshinoGal目录失败: %s", err)
+	//		c.JSON(http.StatusInternalServerError, gin.H{
+	//			"code":    FAIL,
+	//			"message": "创建" + json.Directory + "/.YoshinoGal目录失败",
+	//		})
+	//		return
+	//	}
+	//	err = scraper.RefreshGamesIndex(json.Directory)
+	//	if err != nil {
+	//		log.Errorf("刷新失败: %s", err)
+	//	}
+	//	c.JSON(http.StatusOK, gin.H{
+	//		"code":    SUCCESS,
+	//		"message": "咱收到刷新索引请求了喵！正在处理~",
+	//	})
+	//})
 
 	router.GET("/library/scrape/all/status", func(c *gin.Context) {
 		if scraper.ScrapeAllStatus == 1 {
@@ -248,27 +253,8 @@ func SetupRouter() *gin.Engine {
 		}
 	})
 
-	router.POST("/playtime/monitor/start", func(c *gin.Context) {
-		json := PlayTimeMonitorStart{}
-		err := c.BindJSON(&json)
-		if err != nil {
-			log.Errorf("请求格式错误: %s", err)
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "请求格式错误",
-				"code":    FAIL,
-			})
-			return
-		}
-		err = os.MkdirAll(json.GameBaseFolder+"/.YoshinoGal", 0777)
-		if err != nil {
-			log.Errorf("创建.YoshinoGal目录失败: %s", err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code":    FAIL,
-				"message": "创建" + json.GameBaseFolder + "/.YoshinoGal目录失败",
-			})
-			return
-		}
-		if game_play_time_monitor.MonitorRunningStatusFlag == true {
+	router.POST("/library/playtime/monitor/start", func(c *gin.Context) {
+		if playtime.MonitorRunningStatusFlag == true {
 			c.JSON(http.StatusOK, gin.H{
 				"code":    FAIL,
 				"message": "游戏时长监控器已经在运行中了！别再重复请求了！",
@@ -276,7 +262,7 @@ func SetupRouter() *gin.Engine {
 			return
 		}
 		go func() {
-			game_play_time_monitor.StartMonitor(json.GameBaseFolder, json.GameBaseFolder+"/.YoshinoGal/playTime.json")
+			playtime.StartMonitor(gameLibrary)
 		}()
 		c.JSON(http.StatusOK, gin.H{
 			"code":    SUCCESS,
@@ -284,16 +270,16 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	router.GET("/playtime/monitor/status", func(c *gin.Context) {
+	router.GET("/library/playtime/monitor/status", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    SUCCESS,
 			"message": "游戏时长监控器状态获取成功",
-			"status":  game_play_time_monitor.MonitorRunningStatusFlag,
+			"status":  playtime.MonitorRunningStatusFlag,
 		})
 	})
 
-	router.POST("/playtime/monitor/stop", func(c *gin.Context) {
-		game_play_time_monitor.MonitorStopFlag = true
+	router.POST("/library/playtime/monitor/stop", func(c *gin.Context) {
+		playtime.MonitorStopFlag = true
 		c.JSON(http.StatusOK, gin.H{
 			"code":    SUCCESS,
 			"message": "已停止游戏时长监控器",
