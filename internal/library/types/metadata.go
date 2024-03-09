@@ -55,7 +55,7 @@ type GalgameMetadata struct {
 type GalgamePlayTime struct {
 	TotalTime   int64            `json:"total_time"`    // 总游玩时长
 	LastTime    int64            `json:"last_time"`     // 最后游玩时间
-	EachDayTime map[string]int64 `json:"each_exe_time"` // 每天游玩时长
+	EachDayTime map[string]int64 `json:"each_day_time"` // 每天游玩时长
 }
 
 // GalgameLocalInfo 本地游戏信息（包含截图、海报保存位置、游玩时长等等数据）

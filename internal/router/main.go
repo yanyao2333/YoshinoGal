@@ -1,14 +1,15 @@
-package routers
+package router
 
 import (
 	"YoshinoGal/internal/library"
 	"YoshinoGal/internal/library/database"
 	"YoshinoGal/internal/library/playtime"
 	"YoshinoGal/internal/library/scraper"
+	"YoshinoGal/internal/library/types"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"net/http"
-	"path"
-	"strings"
+	"strconv"
 )
 
 var (
@@ -77,18 +78,83 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	router.GET("/img/*path", func(c *gin.Context) {
-		imagePath := c.Param("path")
-		fileName := path.Base(imagePath)
-		if !strings.Contains(fileName, "screenshot") && !strings.Contains(fileName, "poster") {
+	//router.GET("/img/*path", func(c *gin.Context) {
+	//	imagePath := c.Param("path")
+	//	fileName := path.Base(imagePath)
+	//	if !strings.Contains(fileName, "screenshot") && !strings.Contains(fileName, "poster") {
+	//		c.JSON(http.StatusBadRequest, gin.H{
+	//			"message": "非法请求",
+	//			"code":    FAIL,
+	//		})
+	//		return
+	//	}
+	//	log.Infof("请求图片: %s", imagePath)
+	//	c.File(imagePath[1:])
+	//})
+
+	libraryGroup.GET("/game/screenshots", func(c *gin.Context) {
+		gameId := c.Query("gid")
+		gameIdInt, err := strconv.Atoi(gameId)
+		if err != nil {
+			log.Errorf("请求格式错误: %s", err)
 			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "非法请求",
+				"message": "请求格式错误",
 				"code":    FAIL,
 			})
 			return
 		}
-		log.Infof("请求图片: %s", imagePath)
-		c.File(imagePath[1:])
+		gamePath, err := gameLibrary.GetGameScreenshots(gameIdInt)
+		if err != nil {
+			if errors.Is(err, types.GameScreenshotsNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{
+					"code":    FAIL,
+					"message": "找不到游戏截图",
+				})
+				return
+			}
+			log.Errorf("获取游戏路径失败: %s", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code":    FAIL,
+				"message": "获取游戏路径失败",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"code":    SUCCESS,
+			"message": "获取游戏截图成功",
+			"data":    gamePath,
+		})
+		return
+	})
+
+	libraryGroup.GET("/game/poster", func(c *gin.Context) {
+		gameId := c.Query("gid")
+		gameIdInt, err := strconv.Atoi(gameId)
+		if err != nil {
+			log.Errorf("请求格式错误: %s", err)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "请求格式错误",
+				"code":    FAIL,
+			})
+			return
+		}
+		gamePath, err := gameLibrary.GetGamePathFromId(gameIdInt)
+		if err != nil {
+			if errors.Is(err, types.GamePathNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{
+					"code":    FAIL,
+					"message": "游戏不存在",
+				})
+				return
+			}
+			log.Errorf("获取游戏路径失败: %s", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code":    FAIL,
+				"message": "获取游戏路径失败",
+			})
+			return
+		}
+		c.File(gamePath + "/metadata/poster.jpg")
 	})
 
 	// 执行ScanGamesAndScrape 识别一个目录下的所有游戏并进行刮削
@@ -113,48 +179,48 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	libraryGroup.GET("/index/get", func(c *gin.Context) {
-		GamesIndex, err := gameLibrary.GetGameIndex()
+	libraryGroup.GET("/list", func(c *gin.Context) {
+		GamesIndex, err := gameLibrary.GetGameIdPathMapping()
 		if err != nil {
-			log.Errorf("获取索引失败: %s", err)
+			log.Errorf("获取游戏列表失败: %s", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"code":    FAIL,
-				"message": "获取索引失败",
+				"message": "获取游戏列表失败",
 			})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"code":    SUCCESS,
-			"message": "获取索引成功",
+			"message": "获取游戏列表成功",
 			"data":    GamesIndex,
 		})
 	})
 
-	libraryGroup.POST("/index/posterwall", func(c *gin.Context) {
-		posterwallIndex := map[string]string{}
-		gamesIndex, err := gameLibrary.GetGameIndex()
-		if err != nil {
-			log.Errorf("获取索引失败: %s", err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code":    FAIL,
-				"message": "获取索引失败",
-			})
-			return
-		}
-		for gameName, gameDir := range gamesIndex {
-			posterwallIndex[gameName] = gameDir + "/metadata/poster.jpg"
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"code":    SUCCESS,
-			"message": "获取索引成功",
-			"data":    posterwallIndex,
-		})
-	})
+	//libraryGroup.POST("/index/posterwall", func(c *gin.Context) {
+	//	posterwallIndex := map[string]string{}
+	//	gamesIndex, err := gameLibrary.GetGameNamePathMapping()
+	//	if err != nil {
+	//		log.Errorf("获取索引失败: %s", err)
+	//		c.JSON(http.StatusInternalServerError, gin.H{
+	//			"code":    FAIL,
+	//			"message": "获取索引失败",
+	//		})
+	//		return
+	//	}
+	//	for gameName, gameDir := range gamesIndex {
+	//		posterwallIndex[gameName] = gameDir + "/metadata/poster.jpg"
+	//	}
+	//	c.JSON(http.StatusOK, gin.H{
+	//		"code":    SUCCESS,
+	//		"message": "获取索引成功",
+	//		"data":    posterwallIndex,
+	//	})
+	//})
 
-	// 获取单个游戏的游戏时长
+	// 获取单个游戏的总游戏时长
 	libraryGroup.POST("/game/playtime/total", func(c *gin.Context) {
-		json := INeedGameName{}
-		err := c.BindJSON(&json)
+		gameId := c.Query("gid")
+		gameIdInt, err := strconv.Atoi(gameId)
 		if err != nil {
 			log.Errorf("请求格式错误: %s", err)
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -163,7 +229,7 @@ func SetupRouter() *gin.Engine {
 			})
 			return
 		}
-		playTime, err := gameLibrary.GetGamePlayTime(json.GameName, "")
+		playTime, err := gameLibrary.GetGamePlayTime(gameIdInt)
 		if err != nil {
 			log.Errorf("获取游戏时长失败: %s", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -179,9 +245,9 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	libraryGroup.POST("/game/metadata", func(c *gin.Context) {
-		jsonData := INeedGameName{}
-		err := c.BindJSON(&jsonData)
+	libraryGroup.GET("/game/metadata", func(c *gin.Context) {
+		gameId := c.Query("gid")
+		gameIdInt, err := strconv.Atoi(gameId)
 		if err != nil {
 			log.Errorf("请求格式错误: %s", err)
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -190,7 +256,15 @@ func SetupRouter() *gin.Engine {
 			})
 			return
 		}
-		metadata, err := gameLibrary.GetGameDataByName(jsonData.GameName)
+		metadata, err := gameLibrary.GetGameDataById(gameIdInt)
+		if err != nil {
+			log.Errorf("获取元数据失败: %s", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code":    FAIL,
+				"message": "获取元数据失败",
+			})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"code":    SUCCESS,
 			"message": "获取元数据成功",

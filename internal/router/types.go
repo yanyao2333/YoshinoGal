@@ -1,4 +1,4 @@
-package routers
+package router
 
 // LibraryScraperAll /library/scrape/all/run
 type LibraryScraperAll struct {
@@ -38,8 +38,8 @@ type LibraryScraperAll struct {
 //}
 
 // INeedGameName 只需要游戏名
-type INeedGameName struct {
-	GameName string `json:"game_name" binding:"required"`
+type INeedGameId struct {
+	GameId int `json:"game_id" binding:"required"`
 }
 
 // LoadLibrary /library/load

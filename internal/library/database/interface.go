@@ -3,12 +3,14 @@ package database
 import "YoshinoGal/internal/library/types"
 
 type GameLibraryDatabase interface {
-	InsertGameMetadata(game types.GalgameMetadata) error
-	GetGameDataByName(name string) (*types.GalgameMetadata, error)
-	GetGameDataByPath(path string) (*types.GalgameMetadata, error)
-	InsertGameLocalInfo(name, path string, localInfo types.GalgameLocalInfo) error
-	InsertGamePlayTime(name, path string, playTime types.GalgamePlayTime) error
-	GetGameIndex() (map[string]string, error)
-	GetGamePlayTime(name, path string) (*types.GalgamePlayTime, error)
-	IfHaveGame(name, path string) (bool, error) // 是否存在游戏
+	InsertGameMetadata(game *types.GalgameMetadata) error
+	GetGameDataById(id int) (*types.GalgameMetadata, error)
+	InsertGameLocalInfo(id int, localInfo types.GalgameLocalInfo) error
+	InsertGamePlayTime(id int, playTime types.GalgamePlayTime) error
+	GetGameIdPathMapping() (map[int]string, error)
+	GetGamePlayTime(id int) (*types.GalgamePlayTime, error)
+	GetGameIdFromPath(path string) (int, error)
+	GetGameNamePathMapping() (map[string]string, error)
+	GetGamePathFromId(id int) (string, error)
+	GetGameScreenshots(id int) ([]string, error)
 }

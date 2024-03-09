@@ -80,16 +80,14 @@ func ScrapOneGame(gameName string, priority []string, gameDir string, directlyRu
 	log.Debugf("开始搜索游戏 %s 的元数据", gameName)
 	log.Debugf("搜索优先级：%v", priority)
 	GamesScrapeStatusMap[gameDir] = 1
-	// 只有当数据库中不存在元数据时才进行刮削
-	b, err := libraryDB.IfHaveGame("", gameDir)
-	if err != nil {
-		GamesScrapeStatusMap[gameDir] = 2
-		return errors.WithMessage(err, "查询数据库时发生错误")
-	}
-	if b {
-		log.Infof("游戏 %s 已经存在元数据，跳过", gameName)
-		GamesScrapeStatusMap[gameDir] = 0
-		return nil
+	if !directlyRun {
+		_, err := libraryDB.GetGameIdFromPath(gameDir)
+		if err != nil {
+			if !errors.Is(err, types.GameIdNotFound) {
+				GamesScrapeStatusMap[gameDir] = 2
+				return errors.Wrap(err, "查询数据库时发生错误")
+			}
+		}
 	}
 
 	// 搜索元数据
@@ -157,7 +155,7 @@ func ScrapOneGame(gameName string, priority []string, gameDir string, directlyRu
 
 	// 写入元数据
 	log.Debugf("为游戏 %s 下载图片成功，开始写入元数据", gameName)
-	err = libraryDB.InsertGameMetadata(metadata)
+	err = libraryDB.InsertGameMetadata(&metadata)
 	if err != nil {
 		GamesScrapeStatusMap[gameDir] = 2
 		return errors.WithMessage(err, "写入元数据失败")
@@ -192,23 +190,26 @@ func ScanGamesAndScrape(directory string, priority []string, libraryDB *database
 	}
 
 	var wg sync.WaitGroup
+	concurrencyLimit := 3
+	semaphore := make(chan struct{}, concurrencyLimit)
+
 	for _, file := range files {
-		if !file.IsDir() {
+		if !file.IsDir() || strings.HasPrefix(file.Name(), ".") {
 			continue
 		}
-		if strings.HasPrefix(file.Name(), ".") {
-			continue
-		}
-		file := file
 		gameName := file.Name()
-		err = os.MkdirAll(directory+"/"+gameName+"/metadata", 0777)
+		err := os.MkdirAll(directory+"/"+gameName+"/metadata", 0777)
 		if err != nil {
 			ScrapeAllStatus = 2
 			return errors.Wrap(err, "为路径 "+directory+"/"+gameName+"/metadata 创建目录失败")
 		}
 		wg.Add(1)
+		semaphore <- struct{}{}
 		go func() {
 			defer wg.Done()
+			defer func() {
+				<-semaphore
+			}()
 			err := ScrapOneGame(gameName, priority, directory+"/"+gameName, false, libraryDB)
 			if err != nil {
 				log.Errorf("为游戏 %s 搜索元数据时发生错误：%s", gameName, err)
@@ -217,6 +218,7 @@ func ScanGamesAndScrape(directory string, priority []string, libraryDB *database
 	}
 
 	wg.Wait()
+	close(semaphore)
 	log.Infof("所有游戏刮削完成，好耶！")
 	ScrapeAllStatus = 0
 	return nil

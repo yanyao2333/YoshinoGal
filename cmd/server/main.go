@@ -1,7 +1,7 @@
 package main
 
 import (
-	"YoshinoGal/internal/routers"
+	"YoshinoGal/internal/router"
 	"flag"
 	"fmt"
 	"os"
@@ -37,7 +37,7 @@ func main() {
 	//gin.SetMode(gin.ReleaseMode)
 	port := flag.Int("port", 8080, "a port to listen")
 	flag.Parse()
-	router := routers.SetupRouter()
+	router := router.SetupRouter()
 	err := router.Run(":" + strconv.Itoa(*port))
 	portWasUsedErrString := "Only one usage of each socket address (protocol/network address/port) is normally permitted"
 	if strings.Contains(err.Error(), portWasUsedErrString) {

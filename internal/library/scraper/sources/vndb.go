@@ -109,6 +109,7 @@ func convertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.GalgameMe
 	var galgames []types.GalgameMetadata
 	for _, g := range VNDBResponse.Results {
 		var names []types.GalgameName
+		var fallbackTitle string
 		for _, t := range g.Titles {
 			names = append(names, types.GalgameName{
 				Language: t.Lang,
@@ -117,6 +118,19 @@ func convertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.GalgameMe
 				Official: t.Official,
 				Latin:    t.Latin,
 			})
+
+			if t.Lang == "zh-Hans" {
+				g.Title = t.Title
+				fallbackTitle = ""
+				continue
+			}
+
+			if t.Lang == "zh-Hant" && fallbackTitle == "" {
+				fallbackTitle = t.Title
+			}
+		}
+		if fallbackTitle != "" {
+			g.Title = fallbackTitle
 		}
 		var gameRating = types.GalgameRating{
 			VNDB: g.Rating / 10,
