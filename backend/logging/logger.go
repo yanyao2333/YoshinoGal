@@ -1,4 +1,4 @@
-package sources
+package logging
 
 import (
 	"go.uber.org/zap"
@@ -23,11 +23,19 @@ func getLogWriter() zapcore.WriteSyncer {
 	return zapcore.WriteSyncer(os.Stdout)
 }
 
-func InitLogger() {
+func initLogger() {
 	writeSyncer := getLogWriter()
 	encoder := getEncoder()
 	core := zapcore.NewCore(encoder, writeSyncer, zapcore.DebugLevel)
 
 	logger := zap.New(core)
 	log = logger.Sugar()
+}
+
+// GetLogger 获取日志对象
+func GetLogger() *zap.SugaredLogger {
+	if log == nil {
+		initLogger()
+	}
+	return log
 }

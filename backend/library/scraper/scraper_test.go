@@ -1,7 +1,7 @@
 package scraper
 
 import (
-	"YoshinoGal/internal/library"
+	"YoshinoGal/backend/library"
 	"testing"
 )
 

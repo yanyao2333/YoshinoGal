@@ -1,9 +1,10 @@
 package scraper
 
 import (
-	"YoshinoGal/internal/library/database"
-	"YoshinoGal/internal/library/scraper/sources"
-	"YoshinoGal/internal/library/types"
+	"YoshinoGal/backend/library/database"
+	"YoshinoGal/backend/library/scraper/sources"
+	"YoshinoGal/backend/logging"
+	"YoshinoGal/backend/models"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"io"
@@ -14,17 +15,19 @@ import (
 	"sync"
 )
 
+var log = logging.GetLogger()
+
 var ScrapeAllStatus = 0 // ScanGamesAndScrape 运行状态 0: 未运行 1: 运行中 2: 错误
 
 var GamesScrapeStatusMap = map[string]int{} // 游戏的刮削进度（键为游戏文件夹路径） 0: 已完成 1: 运行中 2: 错误 3: 未开始
 
 // readMetadata 从给定路径读取元数据
-//func readMetadata(path string) (*types.GalgameMetadata, error) {
+//func readMetadata(path string) (*models.GalgameMetadata, error) {
 //	file, err := os.ReadFile(path)
 //	if err != nil {
 //		return nil, errors.Wrap(err, "读取元数据失败")
 //	}
-//	var metadata types.GalgameMetadata
+//	var metadata models.GalgameMetadata
 //	err = json.Unmarshal(file, &metadata)
 //	if err != nil {
 //		return nil, errors.Wrap(err, "解析元数据失败")
@@ -32,12 +35,12 @@ var GamesScrapeStatusMap = map[string]int{} // 游戏的刮削进度（键为游
 //	return &metadata, nil
 //}
 
-//func GetMetadata(gameDir string) (*types.GalgameMetadata, error) {
+//func GetMetadata(gameDir string) (*models.GalgameMetadata, error) {
 //	return readMetadata(gameDir + "/metadata/metadata.json")
 //}
 
 // writeMetadata 将元数据写入给定路径
-//func writeMetadata(path string, metadata *types.GalgameMetadata) error {
+//func writeMetadata(path string, metadata *models.GalgameMetadata) error {
 //	file, err := json.MarshalIndent(metadata, "", "    ")
 //	if err != nil {
 //		return errors.Wrap(err, "序列化元数据失败")
@@ -70,9 +73,6 @@ func downloadImage(url string, path string) error {
 
 // ScrapOneGame 刮削一个游戏（包含元数据、封面图、截图等所有步骤） directlyRun 为false时表示是ScanGamesAndScrape调用的，为true时表示是直接调用的
 func ScrapOneGame(gameName string, priority []string, gameDir string, directlyRun bool, libraryDB *database.SqliteGameLibrary) error {
-	if log == nil {
-		InitLogger()
-	}
 	var wg sync.WaitGroup
 	var downloadErrors []error
 
@@ -83,7 +83,7 @@ func ScrapOneGame(gameName string, priority []string, gameDir string, directlyRu
 	if !directlyRun {
 		_, err := libraryDB.GetGameIdFromPath(gameDir)
 		if err != nil {
-			if !errors.Is(err, types.GameIdNotFound) {
+			if !errors.Is(err, models.CannotMatchGameIDFromPathInDatabase) {
 				GamesScrapeStatusMap[gameDir] = 2
 				return errors.Wrap(err, "查询数据库时发生错误")
 			}
@@ -170,9 +170,6 @@ func ScrapOneGame(gameName string, priority []string, gameDir string, directlyRu
 func ScanGamesAndScrape(directory string, priority []string, libraryDB *database.SqliteGameLibrary) error {
 	GamesScrapeStatusMap = map[string]int{}
 	ScrapeAllStatus = 1
-	if log == nil {
-		InitLogger()
-	}
 	log.Infof("开始扫描目录 %s", directory)
 	files, err := os.ReadDir(directory)
 	if err != nil {
@@ -235,8 +232,8 @@ func ScanGamesAndScrape(directory string, priority []string, libraryDB *database
 //}
 //
 //// mergeGalgameObjects 根据一个元数据来源优先级列表合并多个游戏元数据
-//func mergeGalgameObjects(priorityList []string, galgames map[string]types.GalgameMetadata) types.GalgameMetadata {
-//	var result types.GalgameMetadata
+//func mergeGalgameObjects(priorityList []string, galgames map[string]models.GalgameMetadata) models.GalgameMetadata {
+//	var result models.GalgameMetadata
 //	for _, key := range priorityList {
 //		if galgame, exists := galgames[key]; exists {
 //			mergeGalgame(&result, galgame)
@@ -246,24 +243,24 @@ func ScanGamesAndScrape(directory string, priority []string, libraryDB *database
 //}
 //
 //// mergeGalgame 将src中的非零值合并到dst中
-//func mergeGalgame(dst *types.GalgameMetadata, src types.GalgameMetadata) {
+//func mergeGalgame(dst *models.GalgameMetadata, src models.GalgameMetadata) {
 //	dstVal := reflect.ValueOf(dst).Elem()
 //	srcVal := reflect.ValueOf(src)
 //	for i := 0; i < dstVal.NumField(); i++ {
 //		dstField := dstVal.Field(i)
 //		srcField := srcVal.Field(i)
-//		if !isZeroValue(srcField) && (isZeroValue(dstField) || reflect.DeepEqual(dstField.Interface(), types.GalgameMetadata{})) {
+//		if !isZeroValue(srcField) && (isZeroValue(dstField) || reflect.DeepEqual(dstField.Interface(), models.GalgameMetadata{})) {
 //			dstField.Set(srcField)
 //		}
 //	}
 //}
 
 // // searchAndBuildMetadata 为给定游戏名搜索并构建元数据
-func searchAndBuildMetadata(gameName string, priority []string) (types.GalgameMetadata, error) {
-	var SearchFunctionsList = [1]func(gameName string) (map[string]types.GalgameMetadata, error){
+func searchAndBuildMetadata(gameName string, priority []string) (models.GalgameMetadata, error) {
+	var SearchFunctionsList = [1]func(gameName string) (map[string]models.GalgameMetadata, error){
 		sources.SearchInVNDB,
 	}
-	resultsChan := make(chan map[string]types.GalgameMetadata, len(SearchFunctionsList))
+	resultsChan := make(chan map[string]models.GalgameMetadata, len(SearchFunctionsList))
 
 	// 为每个数据源启动一个 goroutine 来执行搜索
 	var wg sync.WaitGroup
@@ -288,7 +285,7 @@ func searchAndBuildMetadata(gameName string, priority []string) (types.GalgameMe
 	}()
 
 	// 收集所有的搜索结果
-	var allResults = make(map[string]types.GalgameMetadata)
+	var allResults = make(map[string]models.GalgameMetadata)
 	for result := range resultsChan {
 		for key, value := range result {
 			allResults[key] = value

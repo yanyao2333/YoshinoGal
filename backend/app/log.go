@@ -1,4 +1,4 @@
-package database
+package app
 
 import (
 	"go.uber.org/zap"
@@ -6,14 +6,14 @@ import (
 	"os"
 )
 
-var log *zap.SugaredLogger
-
 //var log = &logrus.Logger{
 //	Out:       os.Stdout,
 //	Formatter: new(logrus.TextFormatter),
 //	Hooks:     make(logrus.LevelHooks),
 //	Level:     logrus.DebugLevel,
 //}
+
+var log *zap.SugaredLogger
 
 func getEncoder() zapcore.Encoder {
 	return zapcore.NewConsoleEncoder(zap.NewProductionEncoderConfig())

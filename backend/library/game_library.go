@@ -1,14 +1,15 @@
 package library
 
 import (
-	"YoshinoGal/internal/library/database"
+	"YoshinoGal/backend/library/database"
+	"YoshinoGal/backend/logging"
 	"github.com/pkg/errors"
 	"os"
 )
 
 // InitGameLibrary 初始化游戏库
 func InitGameLibrary(gameDir string) (*database.SqliteGameLibrary, error) {
-	InitLogger()
+	var log = logging.GetLogger()
 	log.Infof("初始化游戏库...")
 	log.Infof("游戏目录: %s", gameDir)
 	dbDir := gameDir + "/.YoshinoGal"

@@ -1,7 +1,8 @@
 package sources
 
 import (
-	"YoshinoGal/internal/library/types"
+	"YoshinoGal/backend/logging"
+	"YoshinoGal/backend/models"
 	"bytes"
 	"encoding/json"
 	"github.com/pkg/errors"
@@ -11,6 +12,8 @@ import (
 	"strings"
 	"time"
 )
+
+var log = logging.GetLogger()
 
 func joinWithCommas(strs []string) string {
 	var builder strings.Builder
@@ -104,14 +107,14 @@ func parseVNDBDescription(description string) string {
 	return strings.ReplaceAll(description, "\n", "<br>")
 }
 
-func convertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.GalgameMetadata, error) {
+func convertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]models.GalgameMetadata, error) {
 	log.Debugf("总共搜索到了 %d 条游戏数据，开始尝试转换为内部源数据格式", len(VNDBResponse.Results))
-	var galgames []types.GalgameMetadata
+	var galgames []models.GalgameMetadata
 	for _, g := range VNDBResponse.Results {
-		var names []types.GalgameName
+		var names []models.GalgameName
 		var fallbackTitle string
 		for _, t := range g.Titles {
-			names = append(names, types.GalgameName{
+			names = append(names, models.GalgameName{
 				Language: t.Lang,
 				Title:    t.Title,
 				Main:     t.Main,
@@ -132,15 +135,15 @@ func convertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.GalgameMe
 		if fallbackTitle != "" {
 			g.Title = fallbackTitle
 		}
-		var gameRating = types.GalgameRating{
+		var gameRating = models.GalgameRating{
 			VNDB: g.Rating / 10,
 		}
-		var metaSources = types.GalgameMetadataSources{
+		var metaSources = models.GalgameMetadataSources{
 			VNDBID: g.Id,
 		}
-		var developers []types.Developers
+		var developers []models.Developers
 		for _, t := range g.Developers {
-			developers = append(developers, types.Developers{
+			developers = append(developers, models.Developers{
 				Name:        t.Name,
 				VNDBId:      t.Id,
 				Description: t.Description,
@@ -157,7 +160,7 @@ func convertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.GalgameMe
 			tags = append(tags, t.Name)
 		}
 		var description = parseVNDBDescription(g.Description)
-		var gal = types.GalgameMetadata{
+		var gal = models.GalgameMetadata{
 			Name:                  g.Title,
 			Names:                 names,
 			ReleaseDate:           g.Released,
@@ -173,7 +176,7 @@ func convertToGalgameStruct(VNDBResponse *VNDBSearchResponse) ([]types.GalgameMe
 			IsR18:                 g.IsR18,
 			Tags:                  tags,
 		}
-		//galgame := types.GalgameSearchResult{
+		//galgame := models.GalgameSearchResult{
 		//	GalgameMetadata: gal,
 		//	Source:  "VNDB",
 		//}
@@ -230,17 +233,14 @@ func GetIsR18(gameName string) (bool, error) {
 }
 
 // SearchInVNDB 对VNDB进行搜索并返回结果
-func SearchInVNDB(gameName string) (map[string]types.GalgameMetadata, error) {
-	if log == nil {
-		InitLogger()
-	}
+func SearchInVNDB(gameName string) (map[string]models.GalgameMetadata, error) {
 	if gameName == "" {
 		return nil, errors.New("游戏名不能为空捏！")
 	}
 	// 确保请求遵守流控限制
 	time.Sleep(time.Until(lastRequestTime.Add(requestInterval)))
 	lastRequestTime = time.Now()
-	var results []types.GalgameMetadata
+	var results []models.GalgameMetadata
 
 	log.Infof("正在从VNDB中搜索游戏：%s", gameName)
 	// 不同的fields类型
@@ -319,5 +319,5 @@ func SearchInVNDB(gameName string) (map[string]types.GalgameMetadata, error) {
 
 	result := results[0] // 只取第一条结果
 
-	return map[string]types.GalgameMetadata{"VNDB": result}, nil
+	return map[string]models.GalgameMetadata{"VNDB": result}, nil
 }

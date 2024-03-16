@@ -1,4 +1,4 @@
-package router
+package app
 
 import (
 	"YoshinoGal/internal/library"
@@ -78,7 +78,7 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	//router.GET("/img/*path", func(c *gin.Context) {
+	//app.GET("/img/*path", func(c *gin.Context) {
 	//	imagePath := c.Param("path")
 	//	fileName := path.Base(imagePath)
 	//	if !strings.Contains(fileName, "screenshot") && !strings.Contains(fileName, "poster") {
@@ -273,7 +273,7 @@ func SetupRouter() *gin.Engine {
 	})
 
 	// 后期会替换为watchdog
-	//router.POST("/library/index/refresh", func(c *gin.Context) {
+	//app.POST("/library/index/refresh", func(c *gin.Context) {
 	//	json := LibraryIndexRefresh{}
 	//	err := c.BindJSON(&json)
 	//	if err != nil {

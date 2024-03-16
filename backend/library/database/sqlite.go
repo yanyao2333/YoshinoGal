@@ -1,7 +1,8 @@
 package database
 
 import (
-	"YoshinoGal/internal/library/types"
+	"YoshinoGal/backend/logging"
+	"YoshinoGal/backend/models"
 	"database/sql"
 	"encoding/json"
 	_ "github.com/mattn/go-sqlite3"
@@ -9,13 +10,15 @@ import (
 	"path/filepath"
 )
 
+var log = logging.GetLogger()
+
 type SqliteGameLibrary struct {
 	db         *sql.DB
 	LibraryDir string
 }
 
 func NewSqliteGameLibrary(db *sql.DB, libraryDir string) *SqliteGameLibrary {
-	return &SqliteGameLibrary{db: db, LibraryDir: libraryDir}
+	return &SqliteGameLibrary{db: db, LibraryDir: filepath.Clean(libraryDir)}
 }
 
 func (s *SqliteGameLibrary) GetGamePathFromId(id int) (string, error) {
@@ -24,7 +27,7 @@ func (s *SqliteGameLibrary) GetGamePathFromId(id int) (string, error) {
 	err := s.db.QueryRow("SELECT game_dir_path FROM galgames_metadata WHERE id = ?", id).Scan(&path)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", types.GamePathNotFound
+			return "", models.GameNotFoundInDatabase
 		}
 		return "", errors.Wrap(err, "查询数据库时发生错误")
 	}
@@ -37,7 +40,7 @@ func (s *SqliteGameLibrary) GetGameScreenshots(id int) ([]string, error) {
 	err := s.db.QueryRow("SELECT local_screenshots_paths FROM galgames_metadata WHERE id = ?", id).Scan(&screenshotsPaths)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, types.GameScreenshotsNotFound
+			return nil, models.GameNotFoundInDatabase
 		}
 		return nil, errors.Wrap(err, "查询数据库时发生错误")
 	}
@@ -52,28 +55,28 @@ func (s *SqliteGameLibrary) GetGameScreenshots(id int) ([]string, error) {
 
 }
 
-func (s *SqliteGameLibrary) GetGameNamePathMapping() (map[string]string, error) {
-	log.Debugf("获取游戏映射...")
-	rows, err := s.db.Query("SELECT name, game_dir_path FROM galgames_metadata")
-	if err != nil {
-		return nil, errors.Wrap(err, "查询数据库时发生错误")
-	}
-	defer rows.Close()
-
-	gameIndex := make(map[string]string)
-	for rows.Next() {
-		var name string
-		var gameDirPath string
-		err = rows.Scan(&name, &gameDirPath)
-		if err != nil {
-			return nil, errors.Wrap(err, "读取数据库时发生错误")
-		}
-		gameIndex[name] = gameDirPath
-	}
-	log.Debugf("游戏映射共%d条", len(gameIndex))
-
-	return gameIndex, nil
-}
+//func (s *SqliteGameLibrary) GetGameNamePathMapping() (map[string]string, error) {
+//	log.Debugf("获取游戏映射...")
+//	rows, err := s.db.Query("SELECT name, game_dir_path FROM galgames_metadata")
+//	if err != nil {
+//		return nil, errors.Wrap(err, "查询数据库时发生错误")
+//	}
+//	defer rows.Close()
+//
+//	gameIndex := make(map[string]string)
+//	for rows.Next() {
+//		var name string
+//		var gameDirPath string
+//		err = rows.Scan(&name, &gameDirPath)
+//		if err != nil {
+//			return nil, errors.Wrap(err, "读取数据库时发生错误")
+//		}
+//		gameIndex[name] = gameDirPath
+//	}
+//	log.Debugf("游戏映射共%d条", len(gameIndex))
+//
+//	return gameIndex, nil
+//}
 
 // GetGameIdPathMapping 获取游戏映射（格式为 map[id]路径 ）
 func (s *SqliteGameLibrary) GetGameIdPathMapping() (map[int]string, error) {
@@ -106,7 +109,7 @@ func (s *SqliteGameLibrary) GetGameIdFromPath(path string) (int, error) {
 	err := s.db.QueryRow("SELECT id FROM galgames_metadata WHERE game_dir_path = ?", filepath.Clean(path)).Scan(&id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, types.GameIdNotFound
+			return 0, models.CannotMatchGameIDFromPathInDatabase
 		}
 		return 0, errors.Wrap(err, "查询数据库时发生错误")
 	}
@@ -153,28 +156,59 @@ func (s *SqliteGameLibrary) GetGameIdFromPath(path string) (int, error) {
 //	return false, errors.New("参数错误")
 //}
 
-func (s *SqliteGameLibrary) GetGamePlayTime(id int) (*types.GalgamePlayTime, error) {
+// GetAllGamePlayTime 获取数据库中所有游戏的游戏时长（用于在monitor初始化时保证数据一致）
+func (s *SqliteGameLibrary) GetAllGamePlayTime() (map[int]models.GalgamePlayTime, error) {
+	rows, err := s.db.Query("SELECT id, play_time FROM galgames_metadata")
+	if err != nil {
+		return nil, errors.Wrap(err, "查询数据库时发生错误")
+	}
+	defer rows.Close()
+
+	playTimeIndex := make(map[int]models.GalgamePlayTime)
+	for rows.Next() {
+		var id int
+		var playTime string
+		err = rows.Scan(&id, &playTime)
+		if err != nil {
+			return nil, errors.Wrap(err, "读取数据库时发生错误")
+		}
+		var playTimeData models.GalgamePlayTime
+		err = json.Unmarshal([]byte(playTime), &playTimeData)
+		if err != nil {
+			return nil, errors.Wrap(err, "解析数据时发生错误")
+		}
+		playTimeIndex[id] = playTimeData
+	}
+
+	return playTimeIndex, nil
+}
+
+func (s *SqliteGameLibrary) GetGamePlayTime(id int) (*models.GalgamePlayTime, error) {
 	var playTime string
 	log.Debugf("获取游戏时长 数据库ID：%v", id)
 	err := s.db.QueryRow("SELECT play_time FROM galgames_metadata WHERE id = ?", id).Scan(&playTime)
 	log.Debugf("获取游戏时长 数据库ID：%v 数据：%v", id, playTime)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.Wrap(err, "游戏不存在于数据库中")
+			return nil, models.GameNotFoundInDatabase
 		}
 		return nil, errors.Wrap(err, "查询数据库时发生错误")
 	}
 
-	var playTimeData types.GalgamePlayTime
+	var playTimeData models.GalgamePlayTime
 	err = json.Unmarshal([]byte(playTime), &playTimeData)
 	if err != nil {
-		return nil, errors.Wrap(err, "解析数据时发生错误")
+		log.Errorf("解析数据时发生错误：%s 使用空数据代替", err)
+		return &models.GalgamePlayTime{EachDayTime: make(map[string]int64)}, nil
+	}
+	if playTimeData.EachDayTime == nil {
+		playTimeData.EachDayTime = make(map[string]int64)
 	}
 
 	return &playTimeData, nil
 }
 
-//func (s *SqliteGameLibrary) GetGameDataByPath(path string) (*types.GalgameMetadata, error) {
+//func (s *SqliteGameLibrary) GetGameDataByPath(path string) (*models.GalgameMetadata, error) {
 //	var name string
 //	err := s.db.QueryRow("SELECT name FROM galgames_metadata WHERE game_dir_path = ?", path).Scan(&name)
 //	if err != nil {
@@ -186,7 +220,7 @@ func (s *SqliteGameLibrary) GetGamePlayTime(id int) (*types.GalgamePlayTime, err
 //}
 
 // InsertGamePlayTime 插入游戏时长数据
-func (s *SqliteGameLibrary) InsertGamePlayTime(id int, playTime types.GalgamePlayTime) error {
+func (s *SqliteGameLibrary) InsertGamePlayTime(id int, playTime models.GalgamePlayTime) error {
 	log.Debugf("插入游戏时长 数据库ID：%v", id)
 	stmt, err := s.db.Prepare(`
 		UPDATE galgames_metadata
@@ -212,7 +246,7 @@ func (s *SqliteGameLibrary) InsertGamePlayTime(id int, playTime types.GalgamePla
 }
 
 // InsertGameLocalInfo 插入游戏本地信息
-func (s *SqliteGameLibrary) InsertGameLocalInfo(id int, localInfo types.GalgameLocalInfo) error {
+func (s *SqliteGameLibrary) InsertGameLocalInfo(id int, localInfo models.GalgameLocalInfo) error {
 	log.Debugf("插入游戏本地信息 数据库ID：%v", id)
 	stmt, err := s.db.Prepare(`
 		UPDATE galgames_metadata
@@ -247,7 +281,7 @@ func (s *SqliteGameLibrary) InsertGameLocalInfo(id int, localInfo types.GalgameL
 	return nil
 }
 
-func (s *SqliteGameLibrary) InsertGameMetadata(game *types.GalgameMetadata) error {
+func (s *SqliteGameLibrary) InsertGameMetadata(game *models.GalgameMetadata) error {
 	var count int
 	log.Debugf("插入游戏元数据 游戏名：%v", game.Name)
 	err := s.db.QueryRow("SELECT COUNT(*) FROM galgames_metadata WHERE name = ?", game.Name).Scan(&count)
@@ -326,9 +360,9 @@ func (s *SqliteGameLibrary) InsertGameMetadata(game *types.GalgameMetadata) erro
 	return nil
 }
 
-func (s *SqliteGameLibrary) GetGameDataById(id int) (*types.GalgameMetadata, error) {
+func (s *SqliteGameLibrary) GetGameDataById(id int) (*models.GalgameMetadata, error) {
 	log.Debugf("通过ID获取游戏元数据 数据库ID：%v", id)
-	var game types.GalgameMetadata
+	var game models.GalgameMetadata
 	var names string
 	var scores string
 	var sources string
@@ -395,7 +429,6 @@ func (s *SqliteGameLibrary) GetGameDataById(id int) (*types.GalgameMetadata, err
 }
 
 func InitSQLiteDB(dbPath string) (*sql.DB, error) {
-	InitLogger()
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "打开数据库时发生错误")
