@@ -21,7 +21,23 @@ func NewSqliteGameLibrary(db *sql.DB, libraryDir string) *SqliteGameLibrary {
 	return &SqliteGameLibrary{db: db, LibraryDir: filepath.Clean(libraryDir)}
 }
 
-func (s *SqliteGameLibrary) GetGamePathFromId(id int) (string, error) {
+func (s *SqliteGameLibrary) RemoveGame(id int) error {
+	log.Debugf("删除游戏 数据库ID：%v", id)
+	stmt, err := s.db.Prepare("DELETE FROM galgames_metadata WHERE id = ?")
+	if err != nil {
+		return errors.Wrap(err, "准备删除数据时发生错误")
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(id)
+	if err != nil {
+		return errors.Wrap(err, "删除数据时发生错误")
+	}
+
+	return nil
+}
+
+func (s *SqliteGameLibrary) GetGamePath(id int) (string, error) {
 	var path string
 	log.Debugf("通过ID获取游戏路径 数据库ID：%v", id)
 	err := s.db.QueryRow("SELECT game_dir_path FROM galgames_metadata WHERE id = ?", id).Scan(&path)
@@ -215,7 +231,7 @@ func (s *SqliteGameLibrary) GetGamePlayTime(id int) (*models.GalgamePlayTime, er
 //		return nil, errors.Wrap(err, "查询数据库时发生错误")
 //	}
 //
-//	return s.GetGameDataById(name)
+//	return s.GetGameMetadata(name)
 //
 //}
 
@@ -360,7 +376,7 @@ func (s *SqliteGameLibrary) InsertGameMetadata(game *models.GalgameMetadata) err
 	return nil
 }
 
-func (s *SqliteGameLibrary) GetGameDataById(id int) (*models.GalgameMetadata, error) {
+func (s *SqliteGameLibrary) GetGameMetadata(id int) (*models.GalgameMetadata, error) {
 	log.Debugf("通过ID获取游戏元数据 数据库ID：%v", id)
 	var game models.GalgameMetadata
 	var names string

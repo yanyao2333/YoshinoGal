@@ -19,17 +19,18 @@ var Manager *GamePlayTimeManager
 var MonitorRunningStatus = false // 游戏时长监控器运行状态
 var MonitorStopFlag = false      // 游戏时长监控器停止标志
 
-func StartMonitor(libraryDB *database.SqliteGameLibrary) {
+func StartMonitor(libraryDB *database.SqliteGameLibrary) (Interface, error) {
 	if Manager == nil {
 		Manager = NewGamePlayTimeManager(libraryDB)
 	}
 	if MonitorRunningStatus {
 		log.Warnf("游戏时长监控器已经在运行中了！")
-		return
+		return Manager, nil
 	}
 	MonitorRunningStatus = true
 	go Manager.Monitor()
 	go Manager.saveGamePlayTime()
+	return Manager, nil
 }
 
 // updatePlayTimeModel 游戏时长更新信息
@@ -77,6 +78,16 @@ func updateGamePlayTime(info updatePlayTimeModel, db *database.SqliteGameLibrary
 		return errors.WithMessage(err, "写入数据库时发生错误")
 	}
 	return nil
+}
+
+func (manager *GamePlayTimeManager) StopMonitor() {
+	MonitorStopFlag = true
+}
+
+type Interface interface {
+	Monitor()
+	saveGamePlayTime()
+	StopMonitor()
 }
 
 func (manager *GamePlayTimeManager) saveGamePlayTime() {

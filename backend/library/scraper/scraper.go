@@ -6,7 +6,6 @@ import (
 	"YoshinoGal/backend/logging"
 	"YoshinoGal/backend/models"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"os"
@@ -100,7 +99,7 @@ func ScrapOneGame(gameName string, priority []string, gameDir string, directlyRu
 	errsChan := make(chan error, len(metadata.RemoteScreenshotsUrls)+1) // 用于收集下载错误
 
 	// 清空metadata文件夹
-	logrus.Debugf("清空metadata文件夹 %s", gameDir+"/metadata")
+	log.Debugf("清空metadata文件夹 %s", gameDir+"/metadata")
 	err = os.RemoveAll(gameDir + "/metadata")
 	if err != nil {
 		GamesScrapeStatusMap[gameDir] = 2

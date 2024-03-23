@@ -1,13 +1,17 @@
 package backend
 
 import (
+	"YoshinoGal/backend/logging"
 	"context"
+	"encoding/json"
 	"go.uber.org/zap"
+	"os"
 )
 
 type LocalConfig struct {
-	GameDir         string   `json:"game_dir"`
+	GameLibraryDir  string   `json:"game_library_dir"`
 	ScraperPriority []string `json:"scraper_priority"`
+	AppVersion      string   `json:"app_version"`
 }
 
 // YoshinoGalApplication 储存软件运行信息
@@ -23,10 +27,25 @@ func NewApp() *YoshinoGalApplication {
 	return &YoshinoGalApplication{}
 }
 
+func (a *YoshinoGalApplication) SetLocalConfig() {
+	content, err := os.ReadFile("config.json")
+	if err != nil {
+		a.Logger.Errorf("读取配置文件失败")
+	}
+	a.LocalConfig = &LocalConfig{}
+	err = json.Unmarshal(content, a.LocalConfig)
+	if err != nil {
+		a.Logger.Errorf("解析配置文件失败")
+	}
+}
+
 // startup is called at application startup
 func (a *YoshinoGalApplication) startup(ctx context.Context) {
 	// Perform your setup here
 	a.CTX = ctx
+	a.Logger = logging.GetLogger()
+	a.Version = VERSION
+
 }
 
 // domReady is called after front-end resources have been loaded
