@@ -38,7 +38,7 @@ func NewWatchDog() *WatchDog {
 }
 
 func (w *WatchDog) Close() {
-	w.Watcher.Close()
+	_ = w.Watcher.Close()
 }
 
 // Watch 启动fsnotify的监视，并将事件发送到相应的channel
@@ -93,11 +93,11 @@ func (w *WatchDog) Watch() {
 }
 
 func (w *WatchDog) AddWatchDir(dir string) {
-	w.Watcher.Add(dir)
+	_ = w.Watcher.Add(dir)
 }
 
 func (w *WatchDog) RemoveWatchDir(dir string) {
-	w.Watcher.Remove(dir)
+	_ = w.Watcher.Remove(dir)
 }
 
 // StartWatchGame 开始监视游戏目录

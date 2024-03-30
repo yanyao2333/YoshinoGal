@@ -235,7 +235,7 @@ func getForegroundWindow() (uintptr, error) {
 // getWindowThreadProcessId 使用Windows API获取给定窗口的进程ID。
 func getWindowThreadProcessId(hwnd uintptr) (uint32, error) {
 	var pid uint32
-	procGetWindowThreadProcessId.Call(hwnd, uintptr(unsafe.Pointer(&pid)))
+	_, _, _ = procGetWindowThreadProcessId.Call(hwnd, uintptr(unsafe.Pointer(&pid)))
 	return pid, nil
 }
 
@@ -246,7 +246,7 @@ func getExecutablePath(pid uint32) (string, error) {
 
 	var buf [syscall.MAX_PATH]uint16
 	var size uint32 = syscall.MAX_PATH
-	procQueryFullProcessImageName.Call(
+	_, _, _ = procQueryFullProcessImageName.Call(
 		uintptr(handle),
 		0,
 		uintptr(unsafe.Pointer(&buf[0])),

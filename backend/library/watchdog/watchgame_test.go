@@ -11,13 +11,13 @@ func TestWatchGame(t *testing.T) {
 		lib             *database.SqliteGameLibrary
 		scraperPriority []string
 	}
-	tests := []struct {
+	var tests []struct {
 		name string
 		args args
-	}{}
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			WatchGame(tt.args.gameDir, tt.args.lib, tt.args.scraperPriority)
+			_, _ = WatchGame(tt.args.gameDir, tt.args.lib, tt.args.scraperPriority)
 		})
 	}
 }

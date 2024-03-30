@@ -45,7 +45,6 @@ func (a *YoshinoGalApplication) startup(ctx context.Context) {
 	a.CTX = ctx
 	a.Logger = logging.GetLogger()
 	a.Version = VERSION
-
 }
 
 // domReady is called after front-end resources have been loaded

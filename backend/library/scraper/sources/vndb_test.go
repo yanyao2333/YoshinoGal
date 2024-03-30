@@ -59,7 +59,7 @@ func TestVNDBSearch(t *testing.T) {
 			}
 			var data, _ = json.MarshalIndent(game, "", "    ")
 			var fileName = "vndb_test_" + strconv.Itoa(num) + ".json"
-			os.WriteFile(fileName, data, 0777)
+			_ = os.WriteFile(fileName, data, 0777)
 		})
 	}
 }

@@ -432,14 +432,14 @@ func (s *SqliteGameLibrary) GetGameMetadata(id int) (*models.GalgameMetadata, er
 		return nil, errors.Wrap(err, "查询数据库时发生错误")
 	}
 
-	json.Unmarshal([]byte(names), &game.Names)
-	json.Unmarshal([]byte(scores), &game.Score)
-	json.Unmarshal([]byte(sources), &game.MetadataSources)
-	json.Unmarshal([]byte(developers), &game.Developers)
-	json.Unmarshal([]byte(tags), &game.Tags)
-	json.Unmarshal([]byte(playTime), &game.GalGameLocal.PlayTime)
-	json.Unmarshal([]byte(localScreenshotsPaths), &game.GalGameLocal.LocalScreenshotsPaths)
-	json.Unmarshal([]byte(screenshots), &game.RemoteScreenshotsUrls)
+	_ = json.Unmarshal([]byte(names), &game.Names)
+	_ = json.Unmarshal([]byte(scores), &game.Score)
+	_ = json.Unmarshal([]byte(sources), &game.MetadataSources)
+	_ = json.Unmarshal([]byte(developers), &game.Developers)
+	_ = json.Unmarshal([]byte(tags), &game.Tags)
+	_ = json.Unmarshal([]byte(playTime), &game.GalGameLocal.PlayTime)
+	_ = json.Unmarshal([]byte(localScreenshotsPaths), &game.GalGameLocal.LocalScreenshotsPaths)
+	_ = json.Unmarshal([]byte(screenshots), &game.RemoteScreenshotsUrls)
 
 	return &game, nil
 }

@@ -26,7 +26,7 @@ func Test_monitor(t *testing.T) {
 				t.Errorf("InitGameLibrary() error = %v", err)
 				return
 			}
-			StartMonitor(db)
+			_, _ = StartMonitor(db)
 			for {
 				continue
 			}
