@@ -7,7 +7,7 @@ type GameLibraryDatabase interface {
 	GetGameMetadata(id int) (*models.GalgameMetadata, error)
 	InsertGameLocalInfo(id int, localInfo models.GalgameLocalInfo) error
 	InsertGamePlayTime(id int, playTime models.GalgamePlayTime) error
-	GetGameIdPathMapping() (map[int]string, error)
+	GetPosterWallMapping() (map[int]string, error)
 	GetGamePlayTime(id int) (*models.GalgamePlayTime, error)
 	GetGameIdFromPath(path string) (int, error)
 	GetGamePath(id int) (string, error)

@@ -94,28 +94,34 @@ func (s *SqliteGameLibrary) GetGameScreenshots(id int) ([]string, error) {
 //	return gameIndex, nil
 //}
 
-// GetGameIdPathMapping 获取游戏映射（格式为 map[id]路径 ）
-func (s *SqliteGameLibrary) GetGameIdPathMapping() (map[int]string, error) {
-	log.Debugf("获取游戏映射...")
-	rows, err := s.db.Query("SELECT id, game_dir_path FROM galgames_metadata")
+// GetPosterWallMapping 获取游戏海报墙映射（格式为 map[id]路径 ）
+func (s *SqliteGameLibrary) GetPosterWallMapping() ([]models.PosterWallGameShow, error) {
+	log.Debugf("获取海报墙所使用的游戏数据映射...")
+	log.Debugf("%v", s.db)
+	rows, err := s.db.Query("SELECT id, game_dir_path, name FROM galgames_metadata")
 	if err != nil {
 		return nil, errors.Wrap(err, "查询数据库时发生错误")
 	}
 	defer rows.Close()
 
-	gameIndex := make(map[int]string)
+	gameList := make([]models.PosterWallGameShow, 10)
 	for rows.Next() {
 		var id int
 		var gameDirPath string
-		err = rows.Scan(&id, &gameDirPath)
+		var name string
+		err = rows.Scan(&id, &gameDirPath, &name)
 		if err != nil {
 			return nil, errors.Wrap(err, "读取数据库时发生错误")
 		}
-		gameIndex[id] = gameDirPath
+		gameList = append(gameList, models.PosterWallGameShow{
+			GameId:     id,
+			PosterPath: gameDirPath + "/metadata/poster.jpg",
+			GameName:   name,
+		})
 	}
-	log.Debugf("游戏映射共%d条", len(gameIndex))
+	log.Debugf("游戏映射共%d条", len(gameList))
 
-	return gameIndex, nil
+	return gameList, nil
 
 }
 

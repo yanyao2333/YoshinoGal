@@ -1,14 +1,8 @@
 package models
 
-import (
-	"YoshinoGal/backend/library/database"
-	"YoshinoGal/backend/library/playtime"
-	"YoshinoGal/backend/library/watchdog"
-)
-
-type Library struct {
-	Database       *database.SqliteGameLibrary
-	GameLibraryDir string
-	Watchdog       *watchdog.Interface
-	Monitor        *playtime.Interface
+// PosterWallGameShow 海报墙使用的数据映射
+type PosterWallGameShow struct {
+	GameId     int    `json:"game_id"`
+	PosterPath string `json:"poster_path"`
+	GameName   string `json:"game_name"`
 }

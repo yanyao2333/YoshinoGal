@@ -1,65 +1,52 @@
 import SideBar from "../components/sideBar";
 import GamePosterWall from "../components/gamePosterWall";
+import {GetPosterWall} from "../../wailsjs/go/app/Library";
+import {useEffect, useState} from "react";
+
+interface Game {
+    name: string;
+    imageSrc: string;
+    id: number;
+    href: string;
+    imageAlt: string
+}
 
 async function getPosterWall() {
-    const backend_port = 8080;
-    const game_library_path = "E:\\GalGames";
-    const res = await fetch(`http://localhost:` + backend_port + `/library/index/posterwall`, {
-        method: 'POST',
-        body: JSON.stringify({
-            directory: game_library_path
-        }),
-        cache: 'no-store',
-    });
-    const data = await res.json();
-
-    if (!data) {
-        return {
-            notFound: true,
-        }
-    }
-
-    if (data["code"] !== 0) {
-        return {
-            notFound: true,
-        }
-    }
-
-    // games是个字典，key是游戏名，value是海报路径
-    let games = data["data"];
-
-    let gamesShowList = [];
-
-    let idx = 1;
-
-    for (let game in games) {
+    let result = await GetPosterWall()
+    let gamesShowList: Game[] = [];
+    for (let game in result) {
         gamesShowList.push({
-            name: game,
-            imageSrc: 'http://localhost:' + backend_port + '/img/' + games[game],
-            id: idx,
-            href: '/game/' + game,
-            imageAlt: game,
+            name: result[game].game_name,
+            imageSrc: result[game].poster_path,
+            id: result[game].game_id,
+            href: '/game/' + result[game].game_id,
+            imageAlt: result[game].game_name,
         });
     }
-
-    console.log(gamesShowList)
 
     return gamesShowList
 }
 
 
-export default async function Home() {
-    const gamesShowList = await getPosterWall();
-    // const gamesShowList = example;
+export default function Home() {
+    const [games, setGames] = useState<Game[]>([]);
+
+    useEffect(() => {
+        getPosterWall().then(result => {
+            setGames(result);
+        }).catch(error => {
+            console.error("Error fetching poster wall:", error);
+        });
+    }, []);
+
     return (
         <div className="flex bg-gray-100">
             <div className="flex flex-col gap-y-5 w-72 h-screen overflow-y-auto">
                 <SideBar/>
             </div>
             <div className="flex-grow overflow-y-auto h-screen">
-                <GamePosterWall game={gamesShowList}/>
+                <GamePosterWall game={games}/>
             </div>
         </div>
     );
-
 }
