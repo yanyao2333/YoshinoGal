@@ -1,13 +1,16 @@
 package main
 
 import (
+	"YoshinoGal/backend"
 	"YoshinoGal/backend/app"
 	"YoshinoGal/backend/logging"
+	"context"
 	"embed"
 	"fmt"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"net/http"
 	"os"
 	"strings"
@@ -56,8 +59,19 @@ func main() {
 			Handler: NewFileLoader(),
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-		OnStartup:        yoshino.Startup,
-		OnShutdown:       yoshino.Shutdown,
+		OnStartup: func(ctx context.Context) {
+			yoshino.CTX = ctx
+			yoshino.Logger = logging.GetLogger()
+			yoshino.Version = backend.VERSION
+			yoshino.SetLocalConfig()
+			yoshino.InitLibrary()
+			logger.Debugf("%v", yoshino.Library)
+			//library = yoshino.Library
+			wailsRuntime.EventsEmit(yoshino.CTX, "BackendReady")
+		},
+		OnShutdown: func(ctx context.Context) {
+
+		},
 		Bind: []interface{}{
 			yoshino,
 			library,

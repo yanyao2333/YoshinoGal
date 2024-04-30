@@ -22,12 +22,12 @@ type YoshinoGalApplication struct {
 	LocalConfig *LocalConfig       `json:"local_config"`
 	Logger      *zap.SugaredLogger `json:"logger"`
 	CTX         context.Context    `json:"ctx"`
-	Library     Library            `json:"library"`
+	Library     *Library           `json:"library"`
 }
 
 // NewApp creates a new App application struct
 func NewApp(library *Library) *YoshinoGalApplication {
-	return &YoshinoGalApplication{Library: *library}
+	return &YoshinoGalApplication{Library: library}
 }
 
 func (a *YoshinoGalApplication) SetLocalConfig() {
@@ -59,10 +59,12 @@ func (a *YoshinoGalApplication) Startup(ctx context.Context) {
 	a.Version = backend.VERSION
 	a.SetLocalConfig()
 	a.InitLibrary()
+	wailsRuntime.EventsEmit(a.CTX, "BackendReady")
 }
 
 // domReady is called after front-end resources have been loaded
 func (a *YoshinoGalApplication) domReady(ctx context.Context) {
+	log.Debugf("dom ready")
 }
 
 // shutdown is called at application termination

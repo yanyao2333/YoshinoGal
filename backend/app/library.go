@@ -8,8 +8,10 @@ import (
 	"YoshinoGal/backend/logging"
 	"YoshinoGal/backend/models"
 	"context"
+	"encoding/base64"
 	"github.com/pkg/errors"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"io"
 	"os"
 )
 
@@ -30,8 +32,8 @@ var log = logging.GetLogger()
 
 // GameLibraryInterface 游戏库接口 所有操作都被封装在这里
 type GameLibraryInterface interface {
-	GetPosterWall() (map[int]string, error)
-	InitGameLibrary(gameDir string) error
+	GetPosterWall() ([]models.PosterWallGameShow, error)
+	InitGameLibrary(gameDir string, scraperPriority []string, ctx context.Context) error
 	ManualScrapeLibrary()
 }
 
@@ -46,13 +48,38 @@ func (a *Library) ManualScrapeLibrary() {
 	log.Infof("手动启动刮削成功！")
 }
 
+func Base64File(fileName string) (string, error) {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return "", err
+	}
+
+	base64Content := base64.StdEncoding.EncodeToString(content)
+	return base64Content, nil
+}
+
 // GetPosterWall 获取游戏海报墙
 func (a *Library) GetPosterWall() ([]models.PosterWallGameShow, error) {
 	mapping, err := a.Database.GetPosterWallMapping()
+	var newMapping []models.PosterWallGameShow
+	for _, m := range mapping {
+		log.Debugf(m.PosterPath)
+		m.PosterB64, err = Base64File(m.PosterPath)
+		if err != nil {
+			log.Warnf("在获取%s的base64时失败！%v", m.PosterPath, err)
+		}
+		newMapping = append(newMapping, m)
+	}
 	if err != nil {
 		return nil, errors.WithMessage(err, "获取游戏海报失败")
 	}
-	return mapping, nil
+	return newMapping, nil
 }
 
 // InitGameLibrary 初始化游戏库，启动所有服务
@@ -84,6 +111,7 @@ func (a *Library) InitGameLibrary(gameDir string, scraperPriority []string, ctx 
 	}
 	log.Infof("启动游戏库相关服务成功")
 
+	log.Debugf("%v", library)
 	a.Database = library
 	//a.Watchdog = &dog
 	a.Monitor = &monitor

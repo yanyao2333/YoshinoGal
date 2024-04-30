@@ -97,14 +97,13 @@ func (s *SqliteGameLibrary) GetGameScreenshots(id int) ([]string, error) {
 // GetPosterWallMapping 获取游戏海报墙映射（格式为 map[id]路径 ）
 func (s *SqliteGameLibrary) GetPosterWallMapping() ([]models.PosterWallGameShow, error) {
 	log.Debugf("获取海报墙所使用的游戏数据映射...")
-	log.Debugf("%v", s.db)
 	rows, err := s.db.Query("SELECT id, game_dir_path, name FROM galgames_metadata")
 	if err != nil {
 		return nil, errors.Wrap(err, "查询数据库时发生错误")
 	}
 	defer rows.Close()
 
-	gameList := make([]models.PosterWallGameShow, 10)
+	var gameList []models.PosterWallGameShow
 	for rows.Next() {
 		var id int
 		var gameDirPath string

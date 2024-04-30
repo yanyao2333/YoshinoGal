@@ -17,7 +17,7 @@ async function getPosterWall() {
     for (let game in result) {
         gamesShowList.push({
             name: result[game].game_name,
-            imageSrc: result[game].poster_path,
+            imageSrc: "data:image/jpg;base64," + result[game].poster_b64,
             id: result[game].game_id,
             href: '/game/' + result[game].game_id,
             imageAlt: result[game].game_name,
@@ -38,12 +38,12 @@ export default function Home() {
             console.error("Error fetching poster wall:", error);
         });
     }, []);
-
     return (
         <div className="flex bg-gray-100">
             <div className="flex flex-col gap-y-5 w-72 h-screen overflow-y-auto">
                 <SideBar/>
             </div>
+
             <div className="flex-grow overflow-y-auto h-screen">
                 <GamePosterWall game={games}/>
             </div>
