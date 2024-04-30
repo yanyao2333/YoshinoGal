@@ -70,8 +70,8 @@ func downloadImage(url string, path string) error {
 	return nil
 }
 
-// ScrapOneGame 刮削一个游戏（包含元数据、封面图、截图等所有步骤） directlyRun 为false时表示是ScanGamesAndScrape调用的，为true时表示是直接调用的
-func ScrapOneGame(gameName string, priority []string, gameDir string, directlyRun bool, libraryDB *database.SqliteGameLibrary) error {
+// ScrapOneGame 刮削一个游戏（包含元数据、封面图、截图等所有步骤） directlyRun 为false时表示是ScanGamesAndScrape调用的，为true时表示是直接调用的。skipAlreadyScraped为true时表明跳过已刮削过的游戏
+func ScrapOneGame(gameName string, priority []string, gameDir string, directlyRun bool, libraryDB *database.SqliteGameLibrary, skipAlreadyScraped bool) error {
 	var wg sync.WaitGroup
 	var downloadErrors []error
 
@@ -85,6 +85,10 @@ func ScrapOneGame(gameName string, priority []string, gameDir string, directlyRu
 			if !errors.Is(err, models.CannotMatchGameIDFromPathInDatabase) {
 				GamesScrapeStatusMap[gameDir] = 2
 				return errors.Wrap(err, "查询数据库时发生错误")
+			}
+			_, oserr := os.Stat(gameDir + "/metadata")
+			if os.IsNotExist(oserr) && !errors.Is(err, models.CannotMatchGameIDFromPathInDatabase) && skipAlreadyScraped {
+				return nil
 			}
 		}
 	}
@@ -166,7 +170,7 @@ func ScrapOneGame(gameName string, priority []string, gameDir string, directlyRu
 
 // ScanGamesAndScrape 遍历指定目录，为每个还没刮削的游戏刮削，并在所给目录的.yoshinogal文件夹下建立索引
 // 默认该目录下的所有一级子目录都是一个游戏目录 搜索时将以目录名作为游戏名
-func ScanGamesAndScrape(directory string, priority []string, libraryDB *database.SqliteGameLibrary) error {
+func ScanGamesAndScrape(directory string, priority []string, libraryDB *database.SqliteGameLibrary, skipAlreadyScrapedGame bool) error {
 	GamesScrapeStatusMap = map[string]int{}
 	ScrapeAllStatus = 1
 	log.Infof("开始扫描目录 %s", directory)
@@ -206,7 +210,7 @@ func ScanGamesAndScrape(directory string, priority []string, libraryDB *database
 			defer func() {
 				<-semaphore
 			}()
-			err := ScrapOneGame(gameName, priority, directory+"/"+gameName, false, libraryDB)
+			err := ScrapOneGame(gameName, priority, directory+"/"+gameName, false, libraryDB, skipAlreadyScrapedGame)
 			if err != nil {
 				log.Errorf("为游戏 %s 搜索元数据时发生错误：%s", gameName, err)
 			}

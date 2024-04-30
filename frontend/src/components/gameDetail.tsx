@@ -8,7 +8,6 @@ type Game = {
     description: string;
     details: Record<string, string>;
     screenshots: string[];
-
 }
 
 function GameDetail(props: { game: Game }) {

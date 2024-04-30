@@ -112,7 +112,7 @@ func (w *WatchDog) StartWatchGame(gameDir string, lib *database.SqliteGameLibrar
 			log.Infof("发现新游戏文件夹 %s", newFolder)
 			gameName := filepath.Base(newFolder)
 			go func() {
-				err := scraper.ScrapOneGame(gameName, scraperPriority, gameDir, true, lib)
+				err := scraper.ScrapOneGame(gameName, scraperPriority, gameDir, true, lib, false)
 				if err != nil {
 					log.Error(err)
 				}

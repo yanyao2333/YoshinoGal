@@ -37,9 +37,9 @@ type GameLibraryInterface interface {
 	ManualScrapeLibrary()
 }
 
-func (a *Library) ManualScrapeLibrary() {
+func (a *Library) ManualScrapeLibrary(skipAlreadyScrapedGame bool) {
 	go func() {
-		err := scraper.ScanGamesAndScrape(a.GameLibraryDir, a.ScrapePriority, a.Database)
+		err := scraper.ScanGamesAndScrape(a.GameLibraryDir, a.ScrapePriority, a.Database, skipAlreadyScrapedGame)
 		if err != nil {
 			wailsRuntime.EventsEmit(a.CTX, "GlobalRuntimeError", map[string]string{"errorMessage": err.Error(), "errorName": "ManualScrapeError"})
 			log.Errorf("启动刮削后失败！%v", err)
