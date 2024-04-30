@@ -86,6 +86,7 @@ func ScrapOneGame(gameName string, priority []string, gameDir string, directlyRu
 				GamesScrapeStatusMap[gameDir] = 2
 				return errors.Wrap(err, "查询数据库时发生错误")
 			}
+			// FIXME 这里检查是否需要跳过的逻辑有问题
 			_, oserr := os.Stat(gameDir + "/metadata")
 			if os.IsNotExist(oserr) && !errors.Is(err, models.CannotMatchGameIDFromPathInDatabase) && skipAlreadyScraped {
 				return nil
